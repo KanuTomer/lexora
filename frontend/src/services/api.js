@@ -175,7 +175,87 @@ export async function getAdminUsers(params = {}) {
   return response.data.data;
 }
 
+export async function createAdminUser(payload) {
+  const response = await api.post("/admin/users", payload);
+  return response.data.data;
+}
+
+export async function updateAdminUser(id, payload) {
+  const response = await api.patch(`/admin/users/${id}`, payload);
+  return response.data.data;
+}
+
+export async function deleteAdminUser(id) {
+  const response = await api.delete(`/admin/users/${id}`);
+  return response.data.data;
+}
+
 export async function updateAdminUserRole(id, role) {
   const response = await api.patch(`/admin/users/${id}/role`, { role });
+  return response.data.data;
+}
+
+export async function getAdminColleges() {
+  const response = await api.get("/admin/colleges");
+  return response.data.data;
+}
+
+export async function createAdminCollege(payload) {
+  const response = await api.post("/admin/colleges", payload);
+  return response.data.data;
+}
+
+export async function updateAdminCollege(id, payload) {
+  const response = await api.patch(`/admin/colleges/${id}`, payload);
+  return response.data.data;
+}
+
+export async function deleteAdminCollege(id) {
+  const response = await api.delete(`/admin/colleges/${id}`);
+  return response.data.data;
+}
+
+export async function getAdminPrograms(params = {}) {
+  const response = await api.get("/admin/programs", { params });
+  return response.data.data;
+}
+
+export async function getAdminCourses(params = {}) {
+  const response = await api.get("/admin/courses", { params });
+  return response.data.data;
+}
+
+export async function createAdminCourse(payload) {
+  const response = await api.post("/admin/courses", payload);
+  return response.data.data;
+}
+
+export async function getAdminSemesters(params = {}) {
+  const response = await api.get("/admin/semesters", { params });
+  return response.data.data;
+}
+
+export async function createAdminSemester(payload) {
+  const response = await api.post("/admin/semesters", payload);
+  return response.data.data;
+}
+
+export async function getAdminSubjects(params = {}) {
+  const response = await api.get("/admin/subjects", { params });
+  return response.data.data;
+}
+
+export async function createAdminSubject(payload) {
+  const response = await api.post("/admin/subjects", payload);
+  return response.data.data;
+}
+
+export async function updateAdminSubject(id, payload) {
+  const response = await api.patch(`/admin/subjects/${id}`, payload);
+  return response.data.data;
+}
+
+export async function deleteAdminSubject(id) {
+  const response = await api.delete(`/admin/subjects/${id}`);
   return response.data.data;
 }
