@@ -170,7 +170,7 @@ export default function LandingPage() {
             <a className="transition hover:text-white/70" href="https://github.com/KanuTomer" target="_blank" rel="noreferrer" aria-label="GitHub">
               <FaGithub />
             </a>
-            <a className="text-sm font-medium text-white/80 hover:text-white" href="https://github.com/your-org/lexora" target="_blank" rel="noreferrer">
+            <a className="text-sm font-medium text-white/80 hover:text-white" href="https://github.com/KanuTomer/lexora" target="_blank" rel="noreferrer">
               Project GitHub
             </a>
           </div>
