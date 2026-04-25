@@ -6,6 +6,7 @@ const fileRepository = require("../repositories/fileRepository");
 const reportRepository = require("../repositories/reportRepository");
 const subjectRepository = require("../repositories/subject.repository");
 const userRepository = require("../repositories/user.repository");
+const { assertFileInScope, getSubjectScope } = require("./tenantScope");
 
 const allowedFileTypes = new Set(["notes", "assignment", "test-paper", "syllabus"]);
 const allowedSorts = new Set(["recent", "downloads"]);
@@ -35,8 +36,8 @@ function getUploadedFilePath(fileUrl) {
   }
 }
 
-async function validateSubject(subjectId) {
-  const subject = await subjectRepository.findById(subjectId);
+async function validateSubject(subjectId, user) {
+  const subject = await subjectRepository.findById(subjectId, { where: getSubjectScope(user) });
   if (!subject) {
     throw createHttpError("Subject not found", 404);
   }
@@ -91,8 +92,8 @@ async function uploadFile({ body, file, user, req }) {
       });
     }
 
-    await validateSubject(subjectId);
     const uploader = await validateUploader(user?.id);
+    await validateSubject(subjectId, uploader);
     let uploadResult;
 
     try {
@@ -122,9 +123,10 @@ async function uploadFile({ body, file, user, req }) {
   }
 }
 
-async function listFiles(query) {
+async function listFiles(query, user) {
   const { page, limit, skip, take } = parsePagination(query);
   const sort = allowedSorts.has(query.sort) ? query.sort : "recent";
+  const subjectWhere = getSubjectScope(user);
 
   if (query.fileType && !allowedFileTypes.has(query.fileType)) {
     throw createHttpError("Invalid file type", 400, {
@@ -133,7 +135,7 @@ async function listFiles(query) {
   }
 
   if (query.subjectId) {
-    await validateSubject(query.subjectId);
+    await validateSubject(query.subjectId, user);
   }
 
   const filters = {
@@ -143,6 +145,7 @@ async function listFiles(query) {
     fileType: query.fileType,
     status: query.status ?? "approved",
     isStale: query.isStale,
+    subjectWhere,
     orderBy: getOrderBy(sort),
     skip,
     take,
@@ -164,12 +167,13 @@ async function listFiles(query) {
   };
 }
 
-async function listReportedFiles(query) {
+async function listReportedFiles(query, user) {
   const { page, limit, skip, take } = parsePagination(query);
   const orderBy = query.sort === "recent" ? { updatedAt: "desc" } : { reportsCount: "desc" };
+  const subjectWhere = getSubjectScope(user);
   const [files, total] = await Promise.all([
-    fileRepository.findReported({ orderBy, skip, take }),
-    fileRepository.countReported(),
+    fileRepository.findReported({ subjectWhere, orderBy, skip, take }),
+    fileRepository.countReported({ subjectWhere }),
   ]);
   const recentReports = await reportRepository.findRecentByFileIds(files.map((file) => file.id));
   const reportReasonsByFile = new Map();
@@ -203,12 +207,13 @@ async function listReportedFiles(query) {
   };
 }
 
-async function listStaleFiles(query) {
+async function listStaleFiles(query, user) {
   const { page, limit, skip, take } = parsePagination(query);
   const orderBy = query.sort === "recent" ? { updatedAt: "desc" } : { updatedAt: "asc" };
+  const subjectWhere = getSubjectScope(user);
   const [files, total] = await Promise.all([
-    fileRepository.findStale({ orderBy, skip, take }),
-    fileRepository.countStale(),
+    fileRepository.findStale({ subjectWhere, orderBy, skip, take }),
+    fileRepository.countStale({ subjectWhere }),
   ]);
 
   return {
@@ -222,24 +227,24 @@ async function listStaleFiles(query) {
   };
 }
 
-async function getFile(id) {
-  const file = await fileRepository.findById(id);
+async function getFile(id, user) {
+  const file = await fileRepository.findById(id, user ? { subjectWhere: getSubjectScope(user) } : {});
   if (!file) {
     throw createHttpError("File not found", 404);
   }
   return file;
 }
 
-async function getPublicFile(id) {
-  const file = await getFile(id);
+async function getPublicFile(id, user) {
+  const file = await getFile(id, user);
   if (file.status !== "approved") {
     throw createHttpError("File not found", 404);
   }
   return file;
 }
 
-async function incrementDownloadCount(id) {
-  await getPublicFile(id);
+async function incrementDownloadCount(id, user) {
+  await getPublicFile(id, user);
   return fileRepository.incrementDownloads(id);
 }
 
@@ -308,19 +313,19 @@ async function deleteFileRecordAndAsset(file) {
   }
 }
 
-async function deleteFileAsModerator(id, actorId) {
-  const file = await getFile(id);
+async function deleteFileAsModerator(id, actor) {
+  const file = await getFile(id, actor);
   await auditService.logAction({
     action: "moderation.file.deleted",
-    actorId,
+    actorId: actor.id,
     targetId: file.id,
     metadata: { status: file.status, reportsCount: file.reportsCount },
   });
   await deleteFileRecordAndAsset(file);
 }
 
-async function approveFileAsModerator(id, actorId) {
-  const file = await getFile(id);
+async function approveFileAsModerator(id, actor) {
+  const file = await getFile(id, actor);
   await reportRepository.clearForFile(file.id);
   const updatedFile = await fileRepository.updateById(file.id, {
     status: "approved",
@@ -328,42 +333,43 @@ async function approveFileAsModerator(id, actorId) {
   });
   await auditService.logAction({
     action: "moderation.file.approved",
-    actorId,
+    actorId: actor.id,
     targetId: file.id,
     metadata: { previousStatus: file.status },
   });
   return updatedFile;
 }
 
-async function ignoreReportsAsModerator(id, actorId) {
-  const file = await getFile(id);
+async function ignoreReportsAsModerator(id, actor) {
+  const file = await getFile(id, actor);
   await reportRepository.clearForFile(file.id);
   const refreshedFile = await fileRepository.findById(file.id);
   await auditService.logAction({
     action: "moderation.file.ignored",
-    actorId,
+    actorId: actor.id,
     targetId: file.id,
     metadata: { reportsCount: file.reportsCount },
   });
   return refreshedFile;
 }
 
-async function keepStaleFileAsModerator(id, actorId) {
-  const file = await getFile(id);
+async function keepStaleFileAsModerator(id, actor) {
+  const file = await getFile(id, actor);
   const updatedFile = await fileRepository.updateById(file.id, { isStale: false });
   await auditService.logAction({
     action: "moderation.file.kept",
-    actorId,
+    actorId: actor.id,
     targetId: file.id,
     metadata: { isStale: false },
   });
   return updatedFile;
 }
 
-async function searchFiles(query) {
+async function searchFiles(query, user) {
   const q = query.q?.trim();
   const { page, limit, skip, take } = parsePagination(query);
   const sort = allowedSorts.has(query.sort) ? query.sort : "recent";
+  const subjectWhere = getSubjectScope(user);
 
   if (!q) {
     return {
@@ -381,6 +387,7 @@ async function searchFiles(query) {
       { uploadedBy: { username: { contains: q, mode: "insensitive" } } },
     ],
     status: "approved",
+    subject: Object.keys(subjectWhere).length > 0 ? subjectWhere : undefined,
   };
 
   const [files, total] = await Promise.all([

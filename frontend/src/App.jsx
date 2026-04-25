@@ -29,8 +29,15 @@ export default function App() {
         }
       />
       <Route path="/" element={<LandingPage />} />
-      <Route element={<AppLayout />}>
-        <Route path="/dashboard" element={<Dashboard />} />
+        <Route element={<AppLayout />}>
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/bookmarks"
           element={
@@ -39,8 +46,22 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-        <Route path="/search" element={<SearchResultsPage />} />
-        <Route path="/subjects/:subjectId" element={<SubjectPage />} />
+        <Route
+          path="/search"
+          element={
+            <ProtectedRoute>
+              <SearchResultsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/subjects/:subjectId"
+          element={
+            <ProtectedRoute>
+              <SubjectPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/upload"
           element={
@@ -49,7 +70,14 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-        <Route path="/files/:fileId" element={<FileDetailsPage />} />
+        <Route
+          path="/files/:fileId"
+          element={
+            <ProtectedRoute>
+              <FileDetailsPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/moderation"
           element={

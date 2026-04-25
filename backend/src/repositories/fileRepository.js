@@ -4,20 +4,25 @@ const include = {
   subject: {
     include: {
       semester: { select: { id: true, number: true } },
-      course: { select: { id: true, name: true, code: true } },
+      course: { select: { id: true, name: true, code: true, collegeId: true } },
     },
   },
   uploadedBy: { select: { id: true, username: true, name: true, email: true, avatarUrl: true, avatarPublicId: true } },
 };
 
 function buildWhere(filters = {}) {
+  const subjectWhere = {
+    ...(filters.subjectWhere ?? {}),
+    ...(filters.semesterId ? { semesterId: filters.semesterId } : {}),
+  };
+
   return {
     subjectId: filters.subjectId,
     uploadedById: filters.uploadedById,
     fileType: filters.fileType,
     status: filters.status,
     isStale: filters.isStale,
-    subject: filters.semesterId ? { semesterId: filters.semesterId } : undefined,
+    subject: Object.keys(subjectWhere).length > 0 ? subjectWhere : undefined,
   };
 }
 
@@ -53,7 +58,7 @@ function countSearch(where) {
 
 function findReported(filters = {}) {
   return prisma.file.findMany({
-    where: { reportsCount: { gt: 0 } },
+    where: { reportsCount: { gt: 0 }, subject: filters.subjectWhere },
     orderBy: filters.orderBy ?? { reportsCount: "desc" },
     skip: filters.skip,
     take: filters.take,
@@ -61,13 +66,13 @@ function findReported(filters = {}) {
   });
 }
 
-function countReported() {
-  return prisma.file.count({ where: { reportsCount: { gt: 0 } } });
+function countReported(filters = {}) {
+  return prisma.file.count({ where: { reportsCount: { gt: 0 }, subject: filters.subjectWhere } });
 }
 
 function findStale(filters = {}) {
   return prisma.file.findMany({
-    where: { isStale: true },
+    where: { isStale: true, subject: filters.subjectWhere },
     orderBy: filters.orderBy ?? { updatedAt: "asc" },
     skip: filters.skip,
     take: filters.take,
@@ -75,8 +80,8 @@ function findStale(filters = {}) {
   });
 }
 
-function countStale() {
-  return prisma.file.count({ where: { isStale: true } });
+function countStale(filters = {}) {
+  return prisma.file.count({ where: { isStale: true, subject: filters.subjectWhere } });
 }
 
 function markAutoApproved(cutoffDate) {
@@ -100,8 +105,9 @@ function markStale(cutoffDate) {
   });
 }
 
-function findById(id) {
-  return prisma.file.findUnique({ where: { id }, include });
+function findById(id, filters = {}) {
+  const scopedWhere = buildWhere(filters);
+  return prisma.file.findFirst({ where: { id, ...scopedWhere }, include });
 }
 
 function create(data) {

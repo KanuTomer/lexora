@@ -1,7 +1,8 @@
 const prisma = require("../prismaClient");
 
-async function findMany() {
+async function findMany(filters = {}) {
   return prisma.subject.findMany({
+    where: filters.where,
     orderBy: [{ semester: { number: "asc" } }, { subjectCode: "asc" }],
     include: {
       course: { select: { id: true, name: true, code: true } },
@@ -11,9 +12,9 @@ async function findMany() {
   });
 }
 
-async function findById(id) {
-  return prisma.subject.findUnique({
-    where: { id },
+async function findById(id, filters = {}) {
+  return prisma.subject.findFirst({
+    where: { id, ...filters.where },
     include: {
       course: true,
       semester: true,

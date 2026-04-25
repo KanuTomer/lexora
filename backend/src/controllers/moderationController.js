@@ -2,17 +2,17 @@ const fileService = require("../services/fileService");
 const moderationUserService = require("../services/moderationUserService");
 
 async function listFiles(req, res) {
-  const result = await fileService.listFiles({ ...req.query, status: "pending" });
+  const result = await fileService.listFiles({ ...req.query, status: "pending" }, req.user);
   res.json(result);
 }
 
 async function listReportedFiles(req, res) {
-  const result = await fileService.listReportedFiles(req.query);
+  const result = await fileService.listReportedFiles(req.query, req.user);
   res.json(result);
 }
 
 async function listStaleFiles(req, res) {
-  const result = await fileService.listStaleFiles(req.query);
+  const result = await fileService.listStaleFiles(req.query, req.user);
   res.json(result);
 }
 
@@ -33,20 +33,20 @@ async function updateUserPrivilege(req, res) {
 async function approveFile(req, res) {
   const file = await fileService.approveFileAsModerator(
     req.params.id ?? req.params.fileId,
-    req.user.id,
+    req.user,
   );
   res.json({ data: file });
 }
 
 async function deleteFile(req, res) {
-  await fileService.deleteFileAsModerator(req.params.id ?? req.params.fileId, req.user.id);
+  await fileService.deleteFileAsModerator(req.params.id ?? req.params.fileId, req.user);
   res.status(204).send();
 }
 
 async function ignoreFile(req, res) {
   const file = await fileService.ignoreReportsAsModerator(
     req.params.id ?? req.params.fileId,
-    req.user.id,
+    req.user,
   );
   res.json({ data: file });
 }
@@ -54,7 +54,7 @@ async function ignoreFile(req, res) {
 async function keepFile(req, res) {
   const file = await fileService.keepStaleFileAsModerator(
     req.params.id ?? req.params.fileId,
-    req.user.id,
+    req.user,
   );
   res.json({ data: file });
 }

@@ -1,6 +1,7 @@
 const fileRepository = require("../repositories/fileRepository");
 const reportRepository = require("../repositories/reportRepository");
 const auditService = require("./auditService");
+const { getSubjectScope } = require("./tenantScope");
 
 const allowedReasons = new Set(["Spam", "Wrong subject", "Duplicate", "Inappropriate"]);
 
@@ -11,7 +12,8 @@ function createHttpError(message, statusCode, details) {
   return error;
 }
 
-async function createReport({ fileId, reason, userId }) {
+async function createReport({ fileId, reason, user }) {
+  const userId = user?.id;
   if (!fileId || !reason) {
     throw createHttpError("fileId and reason are required", 400);
   }
@@ -22,7 +24,7 @@ async function createReport({ fileId, reason, userId }) {
     });
   }
 
-  const file = await fileRepository.findById(fileId);
+  const file = await fileRepository.findById(fileId, { subjectWhere: getSubjectScope(user), status: "approved" });
   if (!file) {
     throw createHttpError("File not found", 404);
   }

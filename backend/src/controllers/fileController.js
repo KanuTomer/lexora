@@ -12,17 +12,17 @@ async function uploadFile(req, res) {
 }
 
 async function listFiles(req, res) {
-  const result = await fileService.listFiles(req.query);
+  const result = await fileService.listFiles(req.query, req.user);
   res.json(result);
 }
 
 async function getFile(req, res) {
-  const file = await fileService.getPublicFile(req.params.id);
+  const file = await fileService.getPublicFile(req.params.id, req.user);
   res.json({ data: file });
 }
 
 async function downloadFile(req, res) {
-  const file = await fileService.incrementDownloadCount(req.params.id);
+  const file = await fileService.incrementDownloadCount(req.params.id, req.user);
   res.json({ data: file });
 }
 
@@ -37,7 +37,7 @@ async function deleteFile(req, res) {
 }
 
 async function searchFiles(req, res) {
-  const result = await fileService.searchFiles(req.query);
+  const result = await fileService.searchFiles(req.query, req.user);
   res.json(result);
 }
 

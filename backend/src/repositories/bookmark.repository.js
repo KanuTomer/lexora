@@ -4,15 +4,20 @@ const fileInclude = {
   subject: {
     include: {
       semester: { select: { id: true, number: true } },
-      course: { select: { id: true, name: true, code: true } },
+      course: { select: { id: true, name: true, code: true, collegeId: true } },
     },
   },
   uploadedBy: { select: { id: true, name: true, email: true } },
 };
 
-async function findByUser(userId) {
+async function findByUser(userId, filters = {}) {
   return prisma.bookmark.findMany({
-    where: { userId },
+    where: {
+      userId,
+      file: {
+        subject: filters.subjectWhere,
+      },
+    },
     orderBy: { createdAt: "desc" },
     include: { file: { include: fileInclude } },
   });

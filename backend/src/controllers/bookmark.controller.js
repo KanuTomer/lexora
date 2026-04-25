@@ -1,12 +1,12 @@
 const bookmarkService = require("../services/bookmark.service");
 
 async function listBookmarks(req, res) {
-  const files = await bookmarkService.listBookmarks(req.user.id);
+  const files = await bookmarkService.listBookmarks(req.user);
   res.json({ data: files });
 }
 
 async function toggleBookmark(req, res) {
-  const result = await bookmarkService.toggleBookmark(req.user.id, req.params.fileId);
+  const result = await bookmarkService.toggleBookmark(req.user, req.params.fileId);
   res.json({ data: result });
 }
 
