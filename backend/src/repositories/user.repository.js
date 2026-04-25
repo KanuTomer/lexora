@@ -1,0 +1,107 @@
+const prisma = require("../prismaClient");
+
+const publicSelect = {
+  id: true,
+  username: true,
+  name: true,
+  role: true,
+  uploadPrivilege: true,
+  avatarUrl: true,
+  avatarPublicId: true,
+  collegeId: true,
+  programId: true,
+  college: { select: { id: true, name: true } },
+  program: { select: { id: true, name: true, collegeId: true } },
+  createdAt: true,
+};
+
+const privateSelect = {
+  ...publicSelect,
+  email: true,
+};
+
+function buildUserWhere(filters = {}) {
+  return {
+    collegeId: filters.collegeId,
+    programId: filters.programId,
+    role: filters.role,
+    uploadPrivilege: filters.uploadPrivilege,
+  };
+}
+
+async function findMany(filters = {}) {
+  return prisma.user.findMany({
+    where: buildUserWhere(filters),
+    orderBy: { createdAt: "desc" },
+    select: privateSelect,
+  });
+}
+
+async function findById(id, { includeEmail = true } = {}) {
+  return prisma.user.findUnique({
+    where: { id },
+    select: includeEmail ? privateSelect : publicSelect,
+  });
+}
+
+async function findByEmail(email) {
+  return prisma.user.findUnique({ where: { email } });
+}
+
+async function create(data) {
+  return prisma.user.create({
+    data,
+    select: privateSelect,
+  });
+}
+
+async function update(id, data) {
+  return prisma.user.update({
+    where: { id },
+    data,
+    select: privateSelect,
+  });
+}
+
+async function findByUsername(username) {
+  return prisma.user.findUnique({ where: { username } });
+}
+
+async function adminFindMany(filters = {}) {
+  return prisma.user.findMany({
+    where: buildUserWhere(filters),
+    orderBy: { createdAt: "desc" },
+    select: privateSelect,
+  });
+}
+
+async function findScopedUsers(scope) {
+  return prisma.user.findMany({
+    where: {
+      collegeId: scope.collegeId,
+      programId: scope.programId,
+      role: { not: "admin" },
+    },
+    orderBy: { username: "asc" },
+    select: privateSelect,
+  });
+}
+
+async function getStats(id) {
+  const [uploadsCount, downloadAggregate, bookmarksCount] = await Promise.all([
+    prisma.file.count({ where: { uploadedById: id } }),
+    prisma.file.aggregate({
+      where: { uploadedById: id },
+      _sum: { downloads: true },
+    }),
+    prisma.bookmark.count({ where: { userId: id } }),
+  ]);
+
+  return {
+    uploadsCount,
+    totalDownloads: downloadAggregate._sum.downloads ?? 0,
+    bookmarksCount,
+  };
+}
+
+module.exports = { findMany, findById, findByEmail, findByUsername, create, update, getStats, adminFindMany, findScopedUsers };

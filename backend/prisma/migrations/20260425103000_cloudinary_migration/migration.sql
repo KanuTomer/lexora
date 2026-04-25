@@ -1,0 +1,5 @@
+ALTER TABLE "users"
+  ADD COLUMN IF NOT EXISTS "avatarPublicId" TEXT;
+
+ALTER TABLE "files"
+  ADD COLUMN IF NOT EXISTS "publicId" TEXT;

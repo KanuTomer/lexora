@@ -1,0 +1,166 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String     @id @default(cuid())
+  username  String     @unique
+  name      String?
+  email     String     @unique
+  password  String
+  role      String     @default("user")
+  uploadPrivilege String @default("restricted")
+  avatarUrl String?
+  avatarPublicId String?
+  collegeId String?
+  programId String?
+  college   College?   @relation(fields: [collegeId], references: [id])
+  program   Program?   @relation(fields: [programId], references: [id])
+  files     File[]
+  bookmarks Bookmark[]
+  reports   Report[]
+  auditLogs AuditLog[] @relation("AuditActor")
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("users")
+}
+
+model College {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  programs  Program[]
+  users     User[]
+  courses   Course[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("colleges")
+}
+
+model Program {
+  id        String   @id @default(cuid())
+  name      String
+  collegeId String
+  college   College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  users     User[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([collegeId, name])
+  @@map("programs")
+}
+
+model Course {
+  id         String     @id @default(cuid())
+  name       String
+  code       String
+  collegeId  String
+  college    College    @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  semesters  Semester[]
+  subjects   Subject[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@unique([collegeId, code])
+  @@map("courses")
+}
+
+model Semester {
+  id        String    @id @default(cuid())
+  number    Int
+  courseId  String
+  course    Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  subjects  Subject[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([courseId, number])
+  @@map("semesters")
+}
+
+model Subject {
+  id          String   @id @default(cuid())
+  subjectCode String
+  subjectName String
+  courseId    String
+  semesterId  String
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  semester    Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  files       File[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([courseId, semesterId, subjectCode])
+  @@index([subjectCode])
+  @@map("subjects")
+}
+
+model File {
+  id           String     @id @default(cuid())
+  title        String
+  fileUrl      String
+  publicId     String?
+  fileType     String
+  size         Int
+  subjectId    String
+  uploadedById String
+  status       String     @default("pending")
+  isStale      Boolean    @default(false)
+  subject      Subject    @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  uploadedBy   User       @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  bookmarks    Bookmark[]
+  reports      Report[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  downloads    Int        @default(0)
+  reportsCount Int        @default(0)
+
+  @@index([subjectId, fileType])
+  @@index([status])
+  @@map("files")
+}
+
+model Bookmark {
+  id        String   @id @default(uuid())
+  userId    String
+  fileId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  file      File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, fileId])
+  @@map("bookmarks")
+}
+
+model Report {
+  id        String   @id @default(cuid())
+  fileId    String
+  userId    String
+  reason    String
+  createdAt DateTime @default(now())
+  file      File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([fileId, userId])
+  @@map("reports")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  actorId   String
+  targetId  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  actor      User     @relation("AuditActor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}

@@ -1,0 +1,43 @@
+# Node
+node_modules/
+**/node_modules/
+
+# Environment files
+.env
+.env.*
+backend/.env
+frontend/.env
+!.env.example
+!backend/.env.example
+!frontend/.env.example
+
+# Build outputs
+dist/
+build/
+frontend/dist/
+backend/dist/
+
+# Uploads
+uploads/
+backend/uploads/
+
+# Logs
+logs/
+*.log
+
+# Prisma
+backend/node_modules/.prisma
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+coverage/
+.cache/
+*.swp
+*.swo
