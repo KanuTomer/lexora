@@ -29,8 +29,12 @@ app.use((req, res, next) => {
 });
 app.use("/uploads", express.static(path.join(__dirname, "../../uploads")));
 
+app.get("/", (req, res) => {
+  res.json({ status: "ok", service: "lexora-api" });
+});
+
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", service: "opennote-api" });
+  res.json({ status: "ok", service: "lexora-api" });
 });
 
 app.use("/api", routes);
