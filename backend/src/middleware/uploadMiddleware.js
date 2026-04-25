@@ -31,4 +31,22 @@ const avatarUpload = multer({
   },
 });
 
-module.exports = { upload, uploadDirectory, avatarUpload, avatarUploadDirectory };
+const signupAvatarUpload = multer({
+  storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+  },
+  fileFilter(req, file, callback) {
+    if (!file.mimetype.startsWith("image/")) {
+      console.warn("[signup] Ignoring non-image avatar upload", {
+        mimetype: file.mimetype,
+        originalname: file.originalname,
+      });
+      return callback(null, false);
+    }
+
+    return callback(null, true);
+  },
+});
+
+module.exports = { upload, uploadDirectory, avatarUpload, signupAvatarUpload, avatarUploadDirectory };

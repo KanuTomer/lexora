@@ -2,6 +2,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const authRepository = require("../repositories/authRepository");
 const { jwtSecret } = require("../config/env");
+const { uploadBuffer } = require("./cloudinaryService");
 
 function createHttpError(message, statusCode, details) {
   const error = new Error(message);
@@ -26,30 +27,85 @@ function sanitizeUser(user) {
   };
 }
 
-async function signup(payload) {
-  const { username, email, password } = payload;
-  const missingFields = ["username", "email", "password"].filter((field) => !payload[field]);
+async function signup(payload = {}, file = null) {
+  console.log("[signup] service start", {
+    hasPayload: Boolean(payload),
+    payloadFields: payload ? Object.keys(payload) : [],
+    hasAvatarFile: Boolean(file),
+    hasAvatarBuffer: Boolean(file?.buffer),
+  });
+
+  const username = typeof payload.username === "string" ? payload.username.trim() : "";
+  const email = typeof payload.email === "string" ? payload.email.trim() : "";
+  const password = typeof payload.password === "string" ? payload.password : "";
+  const normalizedPayload = { username, email, password };
+
+  console.log("[signup] before validation", {
+    hasUsername: Boolean(username),
+    hasEmail: Boolean(email),
+    hasPassword: Boolean(password),
+  });
+
+  const missingFields = ["username", "email", "password"].filter((field) => !normalizedPayload[field]);
 
   if (missingFields.length > 0) {
     throw createHttpError("Missing required signup fields", 400, { missingFields });
   }
+
+  console.log("[signup] validation passed");
 
   const existingUser = await authRepository.findByEmail(email);
   if (existingUser) {
     throw createHttpError("Email is already registered", 409);
   }
 
+  console.log("[signup] email availability check passed");
+
   const existingUsername = await authRepository.findByUsername(username);
   if (existingUsername) {
     throw createHttpError("Username is already taken", 409);
   }
 
+  console.log("[signup] username availability check passed");
+
   const hashedPassword = await bcrypt.hash(password, 12);
+  console.log("[signup] password hashed");
+
+  let avatarUrl = null;
+  let avatarPublicId = null;
+
+  if (file && file.buffer) {
+    console.log("[signup] before Cloudinary avatar upload", {
+      mimetype: file.mimetype,
+      size: file.size,
+    });
+
+    try {
+      const result = await uploadBuffer(file.buffer, "lexora/avatars");
+      avatarUrl = result.secure_url;
+      avatarPublicId = result.public_id;
+      console.log("[signup] Cloudinary avatar upload succeeded", {
+        publicId: avatarPublicId,
+      });
+    } catch (err) {
+      console.error("[signup] Cloudinary avatar upload failed; continuing without avatar", {
+        message: err.message,
+        stack: err.stack,
+      });
+    }
+  } else {
+    console.log("[signup] no avatar file supplied; skipping Cloudinary upload");
+  }
+
+  console.log("[signup] before prisma.user.create");
   const user = await authRepository.createUser({
-    username: username.trim(),
-    email: email.trim(),
+    username,
+    email,
     password: hashedPassword,
+    avatarUrl,
+    avatarPublicId,
   });
+  console.log("[signup] prisma.user.create succeeded", { userId: user.id });
 
   return {
     token: signToken(user),
@@ -57,9 +113,11 @@ async function signup(payload) {
   };
 }
 
-async function login(payload) {
-  const { email, password } = payload;
-  const missingFields = ["email", "password"].filter((field) => !payload[field]);
+async function login(payload = {}) {
+  const email = typeof payload.email === "string" ? payload.email.trim() : "";
+  const password = typeof payload.password === "string" ? payload.password : "";
+  const normalizedPayload = { email, password };
+  const missingFields = ["email", "password"].filter((field) => !normalizedPayload[field]);
 
   if (missingFields.length > 0) {
     throw createHttpError("Missing required login fields", 400, { missingFields });

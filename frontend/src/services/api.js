@@ -1,6 +1,6 @@
 import axios from "axios";
 
-export const API_URL = import.meta.env.VITE_API_URL || "/api";
+export const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:4000/api" : "/api");
 export const BASE_URL = API_URL.endsWith("/api") ? API_URL.slice(0, -4) || "" : API_URL;
 
 export const getFileUrl = (url) => {

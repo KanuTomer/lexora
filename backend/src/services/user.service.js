@@ -107,6 +107,12 @@ async function updateAvatar(id, file) {
     throw error;
   }
 
+  if (!file || !file.buffer) {
+    const error = new Error("Avatar image is required");
+    error.statusCode = 400;
+    throw error;
+  }
+
   let uploadResult;
   try {
     uploadResult = await uploadBuffer(file.buffer, "lexora/avatars");
