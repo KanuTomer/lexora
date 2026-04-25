@@ -35,8 +35,8 @@ const emptyUser = {
 };
 const emptyCollege = { name: "", slug: "" };
 const emptyCourse = { name: "", code: "", collegeId: "" };
-const emptySemester = { courseId: "", number: "" };
-const emptySubject = { subjectCode: "", subjectName: "", courseId: "", semesterId: "" };
+const emptySemester = { collegeId: "", courseId: "", number: "" };
+const emptySubject = { collegeId: "", subjectCode: "", subjectName: "", courseId: "", semesterId: "" };
 
 function getErrorMessage(error, fallback) {
   return error.response?.data?.message ?? fallback;
@@ -71,6 +71,14 @@ export default function AdminPanel() {
     () => courses.find((course) => course.id === subjectForm.courseId),
     [courses, subjectForm.courseId],
   );
+  const semesterCourses = useMemo(
+    () => courses.filter((course) => course.collegeId === semesterForm.collegeId),
+    [courses, semesterForm.collegeId],
+  );
+  const subjectCourses = useMemo(
+    () => courses.filter((course) => course.collegeId === subjectForm.collegeId),
+    [courses, subjectForm.collegeId],
+  );
 
   async function loadColleges() {
     const data = await getAdminColleges();
@@ -85,6 +93,11 @@ export default function AdminPanel() {
   }
 
   async function loadSemesters(courseId = "") {
+    if (!courseId) {
+      setSemesters([]);
+      return [];
+    }
+
     const data = await getAdminSemesters({ courseId: courseId || undefined });
     setSemesters(data);
     return data;
@@ -270,8 +283,9 @@ export default function AdminPanel() {
 
     try {
       const course = await createAdminCourse(courseForm);
-      setCourseForm(emptyCourse);
-      setSubjectForm((current) => ({ ...current, courseId: course.id, semesterId: "" }));
+      setCourseForm({ ...emptyCourse, collegeId: courseForm.collegeId });
+      setSemesterForm((current) => ({ ...current, collegeId: course.collegeId, courseId: course.id }));
+      setSubjectForm((current) => ({ ...current, collegeId: course.collegeId, courseId: course.id, semesterId: "" }));
       await loadCourses();
       showNotice("Course created");
     } catch (submitError) {
@@ -286,8 +300,14 @@ export default function AdminPanel() {
 
     try {
       const semester = await createAdminSemester(semesterForm);
-      setSemesterForm({ courseId: semesterForm.courseId, number: "" });
-      setSubjectForm((current) => ({ ...current, courseId: semester.courseId, semesterId: semester.id }));
+      const course = courses.find((item) => item.id === semester.courseId);
+      setSemesterForm({ collegeId: semesterForm.collegeId, courseId: semesterForm.courseId, number: "" });
+      setSubjectForm((current) => ({
+        ...current,
+        collegeId: course?.collegeId ?? current.collegeId,
+        courseId: semester.courseId,
+        semesterId: semester.id,
+      }));
       await loadSemesters(semester.courseId);
       showNotice("Semester created");
     } catch (submitError) {
@@ -301,6 +321,7 @@ export default function AdminPanel() {
     setSubjectForm({
       subjectCode: subject.subjectCode ?? "",
       subjectName: subject.subjectName ?? "",
+      collegeId: subject.course?.collegeId ?? "",
       courseId: subject.courseId ?? "",
       semesterId: subject.semesterId ?? "",
     });
@@ -512,27 +533,35 @@ export default function AdminPanel() {
 
             <form className="grid gap-3 rounded border border-line bg-white p-3 md:grid-cols-2" onSubmit={handleSemesterSubmit}>
               <h2 className="font-semibold md:col-span-2">Semester setup</h2>
-              <select className="h-9 rounded border border-line bg-white px-2 text-sm" value={semesterForm.courseId} onChange={(event) => setSemesterForm((current) => ({ ...current, courseId: event.target.value }))}>
+              <select className="h-9 rounded border border-line bg-white px-2 text-sm" value={semesterForm.collegeId} onChange={(event) => setSemesterForm((current) => ({ ...current, collegeId: event.target.value, courseId: "" }))}>
+                <option value="">Select college</option>
+                {colleges.map((college) => <option key={college.id} value={college.id}>{college.name}</option>)}
+              </select>
+              <select className="h-9 rounded border border-line bg-white px-2 text-sm" value={semesterForm.courseId} onChange={(event) => setSemesterForm((current) => ({ ...current, courseId: event.target.value }))} disabled={!semesterForm.collegeId}>
                 <option value="">Select course</option>
-                {courses.map((course) => <option key={course.id} value={course.id}>{course.code} - {course.name}</option>)}
+                {semesterCourses.map((course) => <option key={course.id} value={course.id}>{course.code} - {course.name}</option>)}
               </select>
               <input className="h-9 rounded border border-line px-2 text-sm" min="1" placeholder="Semester number" type="number" value={semesterForm.number} onChange={(event) => setSemesterForm((current) => ({ ...current, number: event.target.value }))} />
               <button className="h-9 rounded border border-blue-700 bg-blue-700 px-3 text-sm font-medium text-white md:w-fit" type="submit">Add semester</button>
             </form>
           </div>
 
-          <form className="grid gap-3 rounded border border-line bg-white p-3 md:grid-cols-4" onSubmit={handleSubjectSubmit}>
-            <select className="h-9 rounded border border-line bg-white px-2 text-sm" value={subjectForm.courseId} onChange={(event) => setSubjectForm((current) => ({ ...current, courseId: event.target.value, semesterId: "" }))}>
-              <option value="">Select course</option>
-              {courses.map((course) => <option key={course.id} value={course.id}>{course.code} - {course.name}</option>)}
+          <form className="grid gap-3 rounded border border-line bg-white p-3 md:grid-cols-5" onSubmit={handleSubjectSubmit}>
+            <select className="h-9 rounded border border-line bg-white px-2 text-sm" value={subjectForm.collegeId} onChange={(event) => setSubjectForm((current) => ({ ...current, collegeId: event.target.value, courseId: "", semesterId: "" }))}>
+              <option value="">Select college</option>
+              {colleges.map((college) => <option key={college.id} value={college.id}>{college.name}</option>)}
             </select>
-            <select className="h-9 rounded border border-line bg-white px-2 text-sm" value={subjectForm.semesterId} onChange={(event) => setSubjectForm((current) => ({ ...current, semesterId: event.target.value }))}>
+            <select className="h-9 rounded border border-line bg-white px-2 text-sm" value={subjectForm.courseId} onChange={(event) => setSubjectForm((current) => ({ ...current, courseId: event.target.value, semesterId: "" }))} disabled={!subjectForm.collegeId}>
+              <option value="">Select course</option>
+              {subjectCourses.map((course) => <option key={course.id} value={course.id}>{course.code} - {course.name}</option>)}
+            </select>
+            <select className="h-9 rounded border border-line bg-white px-2 text-sm" value={subjectForm.semesterId} onChange={(event) => setSubjectForm((current) => ({ ...current, semesterId: event.target.value }))} disabled={!subjectForm.courseId}>
               <option value="">Select semester</option>
               {semesters.map((semester) => <option key={semester.id} value={semester.id}>Semester {semester.number}</option>)}
             </select>
             <input className="h-9 rounded border border-line px-2 text-sm" placeholder="Subject code" value={subjectForm.subjectCode} onChange={(event) => setSubjectForm((current) => ({ ...current, subjectCode: event.target.value }))} />
             <input className="h-9 rounded border border-line px-2 text-sm" placeholder="Subject name" value={subjectForm.subjectName} onChange={(event) => setSubjectForm((current) => ({ ...current, subjectName: event.target.value }))} />
-            <div className="flex gap-2 md:col-span-4">
+            <div className="flex gap-2 md:col-span-5">
               <button className="h-9 rounded border border-blue-700 bg-blue-700 px-3 text-sm font-medium text-white" type="submit">{editingSubjectId ? "Update subject" : "Add subject"}</button>
               {editingSubjectId ? <button className="h-9 rounded border border-line bg-white px-3 text-sm" type="button" onClick={resetSubjectForm}>Cancel</button> : null}
               {selectedSubjectCourse ? <span className="self-center text-sm text-muted">Selected course: {selectedSubjectCourse.name}</span> : null}

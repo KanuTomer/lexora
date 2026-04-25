@@ -198,6 +198,7 @@ module.exports = {
   findCollegeById,
   findCollegeByName,
   findCollegeBySlug,
+  findColleges,
   findCourseByCollegeAndCode,
   findCourseById,
   findCourses,
