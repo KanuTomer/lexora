@@ -5,8 +5,10 @@ const include = {
     include: {
       semester: { select: { id: true, number: true } },
       course: { select: { id: true, name: true, code: true, collegeId: true } },
+      catalog: { select: { id: true, collegeId: true, subjectCode: true, canonicalName: true } },
     },
   },
+  subjectCatalog: { select: { id: true, collegeId: true, subjectCode: true, canonicalName: true } },
   uploadedBy: { select: { id: true, username: true, name: true, avatarUrl: true } },
 };
 
@@ -15,14 +17,23 @@ function buildWhere(filters = {}) {
     ...(filters.subjectWhere ?? {}),
     ...(filters.semesterId ? { semesterId: filters.semesterId } : {}),
   };
+  const subjectAccessWhere = Object.keys(subjectWhere).length > 0
+    ? {
+        OR: [
+          { subject: subjectWhere },
+          { subjectCatalog: { subjects: { some: subjectWhere } } },
+        ],
+      }
+    : {};
 
   return {
     subjectId: filters.subjectId,
+    subjectCatalogId: filters.subjectCatalogId,
     uploadedById: filters.uploadedById,
     fileType: filters.fileType,
     status: filters.status,
     isStale: filters.isStale,
-    subject: Object.keys(subjectWhere).length > 0 ? subjectWhere : undefined,
+    ...subjectAccessWhere,
   };
 }
 
@@ -62,7 +73,10 @@ function countSearch(where) {
 
 function findReported(filters = {}) {
   return prisma.file.findMany({
-    where: { reportsCount: { gt: 0 }, subject: filters.subjectWhere },
+    where: {
+      ...buildWhere({ subjectWhere: filters.subjectWhere }),
+      reportsCount: { gt: 0 },
+    },
     orderBy: filters.orderBy ?? { reportsCount: "desc" },
     skip: filters.skip,
     take: filters.take,
@@ -71,12 +85,17 @@ function findReported(filters = {}) {
 }
 
 function countReported(filters = {}) {
-  return prisma.file.count({ where: { reportsCount: { gt: 0 }, subject: filters.subjectWhere } });
+  return prisma.file.count({
+    where: {
+      ...buildWhere({ subjectWhere: filters.subjectWhere }),
+      reportsCount: { gt: 0 },
+    },
+  });
 }
 
 function findStale(filters = {}) {
   return prisma.file.findMany({
-    where: { isStale: true, subject: filters.subjectWhere },
+    where: buildWhere({ subjectWhere: filters.subjectWhere, isStale: true }),
     orderBy: filters.orderBy ?? { updatedAt: "asc" },
     skip: filters.skip,
     take: filters.take,
@@ -85,7 +104,7 @@ function findStale(filters = {}) {
 }
 
 function countStale(filters = {}) {
-  return prisma.file.count({ where: { isStale: true, subject: filters.subjectWhere } });
+  return prisma.file.count({ where: buildWhere({ subjectWhere: filters.subjectWhere, isStale: true }) });
 }
 
 function markAutoApproved(cutoffDate) {

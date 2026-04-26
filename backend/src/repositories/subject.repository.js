@@ -14,8 +14,10 @@ async function findMany(filters = {}) {
       semesterId: true,
       createdAt: true,
       updatedAt: true,
+      subjectCatalogId: true,
       course: { select: { id: true, name: true, code: true } },
       semester: { select: { id: true, number: true } },
+      catalog: { select: { id: true, collegeId: true, subjectCode: true, canonicalName: true } },
       _count: { select: { files: true } },
     },
   });
@@ -31,9 +33,17 @@ async function findById(id, filters = {}) {
     include: {
       course: true,
       semester: true,
+      catalog: true,
       files: true,
     },
   });
 }
 
-module.exports = { countMany, findMany, findById };
+async function findFirst(filters = {}) {
+  return prisma.subject.findFirst({
+    where: filters.where,
+    select: { id: true, subjectCatalogId: true },
+  });
+}
+
+module.exports = { countMany, findMany, findById, findFirst };

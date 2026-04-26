@@ -1,5 +1,5 @@
 const bookmarkRepository = require("../repositories/bookmark.repository");
-const fileRepository = require("../repositories/file.repository");
+const fileService = require("./fileService");
 const { getSubjectScope } = require("./tenantScope");
 
 async function listBookmarks(user) {
@@ -20,12 +20,7 @@ async function toggleBookmark(user, fileId) {
     throw error;
   }
 
-  const file = await fileRepository.findById(fileId, { subjectWhere: getSubjectScope(user), status: "approved" });
-  if (!file) {
-    const error = new Error("File not found");
-    error.statusCode = 404;
-    throw error;
-  }
+  await fileService.getPublicFile(fileId, user);
 
   const existingBookmark = await bookmarkRepository.findByUserAndFile(user.id, fileId);
   if (existingBookmark) {

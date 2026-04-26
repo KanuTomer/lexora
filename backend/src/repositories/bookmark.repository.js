@@ -5,17 +5,29 @@ const fileInclude = {
     include: {
       semester: { select: { id: true, number: true } },
       course: { select: { id: true, name: true, code: true, collegeId: true } },
+      catalog: { select: { id: true, collegeId: true, subjectCode: true, canonicalName: true } },
     },
   },
-  uploadedBy: { select: { id: true, name: true, email: true } },
+  subjectCatalog: { select: { id: true, collegeId: true, subjectCode: true, canonicalName: true } },
+  uploadedBy: { select: { id: true, username: true, name: true, avatarUrl: true } },
 };
 
 async function findByUser(userId, filters = {}) {
+  const scopedFileWhere = filters.subjectWhere
+    ? {
+        OR: [
+          { subject: filters.subjectWhere },
+          { subjectCatalog: { subjects: { some: filters.subjectWhere } } },
+        ],
+      }
+    : {};
+
   return prisma.bookmark.findMany({
     where: {
       userId,
       file: {
-        subject: filters.subjectWhere,
+        ...scopedFileWhere,
+        status: "approved",
       },
     },
     orderBy: { createdAt: "desc" },

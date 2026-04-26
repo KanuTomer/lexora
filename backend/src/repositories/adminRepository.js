@@ -17,6 +17,7 @@ const userSelect = {
 const subjectInclude = {
   course: { select: { id: true, name: true, code: true, collegeId: true } },
   semester: { select: { id: true, number: true, courseId: true } },
+  catalog: { select: { id: true, collegeId: true, subjectCode: true, canonicalName: true } },
   _count: { select: { files: true } },
 };
 
@@ -146,6 +147,13 @@ function findCourseById(id) {
   return prisma.course.findUnique({ where: { id }, include: { semesters: true } });
 }
 
+function findCourseWithCollege(id) {
+  return prisma.course.findUnique({
+    where: { id },
+    select: { id: true, collegeId: true, name: true, code: true },
+  });
+}
+
 function findCourseByCollegeAndCode(collegeId, code) {
   return prisma.course.findUnique({ where: { collegeId_code: { collegeId, code } } });
 }
@@ -259,17 +267,45 @@ function upsertSemester(data) {
 }
 
 function upsertSubject(data) {
-  return prisma.subject.upsert({
-    where: {
-      courseId_semesterId_subjectCode: {
-        courseId: data.courseId,
-        semesterId: data.semesterId,
-        subjectCode: data.subjectCode,
+  return prisma.$transaction(async (tx) => {
+    const course = await tx.course.findUnique({
+      where: { id: data.courseId },
+      select: { collegeId: true },
+    });
+    if (!course) {
+      throw new Error("Course not found");
+    }
+
+    const catalog = await tx.subjectCatalog.upsert({
+      where: {
+        collegeId_subjectCode: {
+          collegeId: course.collegeId,
+          subjectCode: data.subjectCode,
+        },
       },
-    },
-    update: { subjectName: data.subjectName },
-    create: data,
-    include: subjectInclude,
+      update: { canonicalName: data.subjectName },
+      create: {
+        collegeId: course.collegeId,
+        subjectCode: data.subjectCode,
+        canonicalName: data.subjectName,
+      },
+    });
+
+    return tx.subject.upsert({
+      where: {
+        courseId_semesterId_subjectCode: {
+          courseId: data.courseId,
+          semesterId: data.semesterId,
+          subjectCode: data.subjectCode,
+        },
+      },
+      update: {
+        subjectName: data.subjectName,
+        subjectCatalogId: catalog.id,
+      },
+      create: { ...data, subjectCatalogId: catalog.id },
+      include: subjectInclude,
+    });
   });
 }
 
@@ -283,12 +319,57 @@ function findSubjectByComposite(courseId, semesterId, subjectCode) {
   });
 }
 
+async function resolveSubjectCatalog(tx, data) {
+  const course = await tx.course.findUnique({
+    where: { id: data.courseId },
+    select: { collegeId: true },
+  });
+  if (!course) {
+    throw new Error("Course not found");
+  }
+
+  return tx.subjectCatalog.upsert({
+    where: {
+      collegeId_subjectCode: {
+        collegeId: course.collegeId,
+        subjectCode: data.subjectCode,
+      },
+    },
+    update: { canonicalName: data.subjectName },
+    create: {
+      collegeId: course.collegeId,
+      subjectCode: data.subjectCode,
+      canonicalName: data.subjectName,
+    },
+  });
+}
+
 function createSubject(data) {
-  return prisma.subject.create({ data, include: subjectInclude });
+  return prisma.$transaction(async (tx) => {
+    const catalog = await resolveSubjectCatalog(tx, data);
+    return tx.subject.create({
+      data: { ...data, subjectCatalogId: catalog.id },
+      include: subjectInclude,
+    });
+  });
 }
 
 function updateSubject(id, data) {
-  return prisma.subject.update({ where: { id }, data, include: subjectInclude });
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.subject.findUnique({ where: { id } });
+    const nextData = { ...data };
+
+    if (data.courseId || data.subjectCode || data.subjectName) {
+      const catalog = await resolveSubjectCatalog(tx, {
+        courseId: data.courseId || existing.courseId,
+        subjectCode: data.subjectCode || existing.subjectCode,
+        subjectName: data.subjectName || existing.subjectName,
+      });
+      nextData.subjectCatalogId = catalog.id;
+    }
+
+    return tx.subject.update({ where: { id }, data: nextData, include: subjectInclude });
+  });
 }
 
 function deleteSubject(id) {
@@ -316,6 +397,7 @@ module.exports = {
   findColleges,
   findCourseByCollegeAndCode,
   findCourseById,
+  findCourseWithCollege,
   findCourses,
   findPrograms,
   findSemesterByCourseAndNumber,

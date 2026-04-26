@@ -48,6 +48,20 @@ async function validateSubject(subjectId, user) {
   return subject;
 }
 
+async function hasCatalogPlacementInScope(subjectCatalogId, user) {
+  if (!subjectCatalogId) {
+    return false;
+  }
+
+  const subject = await subjectRepository.findFirst({
+    where: {
+      subjectCatalogId,
+      ...getSubjectScope(user),
+    },
+  });
+  return Boolean(subject);
+}
+
 function parsePagination(query) {
   const page = Math.max(Number.parseInt(query.page, 10) || 1, 1);
   const requestedLimit = Number.parseInt(query.limit, 10) || 10;
@@ -193,7 +207,7 @@ async function uploadFile({ body, file, user, req }) {
     }
 
     const uploader = await validateUploader(user?.id);
-    await validateSubject(subjectId, uploader);
+    const subject = await validateSubject(subjectId, uploader);
     const storedAsset = await resolveStoredAsset(file);
 
     return fileRepository.create({
@@ -206,6 +220,7 @@ async function uploadFile({ body, file, user, req }) {
       size: file.size,
       status: uploader.uploadPrivilege === "trusted" ? "approved" : "pending",
       subjectId,
+      subjectCatalogId: subject.subjectCatalogId ?? null,
       uploadedById: user.id,
     });
   } catch (error) {
@@ -225,18 +240,18 @@ async function listFiles(query, user) {
     });
   }
 
-  if (query.subjectId) {
-    await validateSubject(query.subjectId, user);
-  }
+  const subject = query.subjectId ? await validateSubject(query.subjectId, user) : null;
+  const shouldUseSharedCatalog = Boolean(subject?.subjectCatalogId);
 
   const filters = {
-    subjectId: query.subjectId,
+    subjectId: shouldUseSharedCatalog ? undefined : query.subjectId,
+    subjectCatalogId: shouldUseSharedCatalog ? subject.subjectCatalogId : undefined,
     semesterId: query.semesterId,
     uploadedById: query.uploadedById,
     fileType: query.fileType,
     status: canModerate(user) ? (query.status ?? "approved") : "approved",
     isStale: query.isStale,
-    subjectWhere,
+    subjectWhere: shouldUseSharedCatalog ? undefined : subjectWhere,
     orderBy: getOrderBy(sort),
     skip,
     take,
@@ -308,9 +323,18 @@ async function listStaleFiles(query, user) {
 }
 
 async function getFile(id, user) {
-  const file = await fileRepository.findById(id, user ? { subjectWhere: getSubjectScope(user) } : {});
+  const file = await fileRepository.findById(id);
   if (!file) {
     throw createHttpError("File not found", 404);
+  }
+  if (user) {
+    try {
+      assertSubjectInScope(file.subject, user);
+    } catch (error) {
+      if (!(await hasCatalogPlacementInScope(file.subjectCatalogId, user))) {
+        throw createHttpError("File not found", 404);
+      }
+    }
   }
   return file;
 }
@@ -485,15 +509,28 @@ async function searchFiles(query, user) {
   }
 
   const where = {
-    OR: [
-      { title: { contains: q, mode: "insensitive" } },
-      { subject: { subjectCode: { contains: q, mode: "insensitive" } } },
-      { subject: { subjectName: { contains: q, mode: "insensitive" } } },
-      { uploadedBy: { name: { contains: q, mode: "insensitive" } } },
-      { uploadedBy: { username: { contains: q, mode: "insensitive" } } },
+    AND: [
+      {
+        OR: [
+          { title: { contains: q, mode: "insensitive" } },
+          { subject: { subjectCode: { contains: q, mode: "insensitive" } } },
+          { subject: { subjectName: { contains: q, mode: "insensitive" } } },
+          { subjectCatalog: { subjectCode: { contains: q, mode: "insensitive" } } },
+          { subjectCatalog: { canonicalName: { contains: q, mode: "insensitive" } } },
+          { uploadedBy: { name: { contains: q, mode: "insensitive" } } },
+          { uploadedBy: { username: { contains: q, mode: "insensitive" } } },
+        ],
+      },
+      Object.keys(subjectWhere).length > 0
+        ? {
+            OR: [
+              { subject: subjectWhere },
+              { subjectCatalog: { subjects: { some: subjectWhere } } },
+            ],
+          }
+        : {},
     ],
     status: "approved",
-    subject: Object.keys(subjectWhere).length > 0 ? subjectWhere : undefined,
   };
 
   const [files, total] = await Promise.all([

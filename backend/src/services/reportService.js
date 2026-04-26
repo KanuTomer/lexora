@@ -1,7 +1,6 @@
-const fileRepository = require("../repositories/fileRepository");
+const fileService = require("./fileService");
 const reportRepository = require("../repositories/reportRepository");
 const auditService = require("./auditService");
-const { getSubjectScope } = require("./tenantScope");
 
 const allowedReasons = new Set(["Spam", "Wrong subject", "Duplicate", "Inappropriate"]);
 
@@ -24,10 +23,7 @@ async function createReport({ fileId, reason, user }) {
     });
   }
 
-  const file = await fileRepository.findById(fileId, { subjectWhere: getSubjectScope(user), status: "approved" });
-  if (!file) {
-    throw createHttpError("File not found", 404);
-  }
+  await fileService.getPublicFile(fileId, user);
 
   const existingReport = await reportRepository.findByFileAndUser(fileId, userId);
   if (existingReport) {

@@ -38,6 +38,7 @@ model College {
   programs  Program[]
   users     User[]
   courses   Course[]
+  subjectCatalogs SubjectCatalog[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -95,15 +96,34 @@ model Subject {
   subjectName String
   courseId    String
   semesterId  String
+  subjectCatalogId String?
   course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
   semester    Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  catalog     SubjectCatalog? @relation(fields: [subjectCatalogId], references: [id], onDelete: SetNull)
   files       File[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@unique([courseId, semesterId, subjectCode])
   @@index([subjectCode])
+  @@index([subjectCatalogId])
   @@map("subjects")
+}
+
+model SubjectCatalog {
+  id            String   @id @default(cuid())
+  collegeId     String
+  subjectCode   String
+  canonicalName String?
+  college       College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  subjects      Subject[]
+  files         File[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([collegeId, subjectCode])
+  @@index([subjectCode])
+  @@map("subject_catalogs")
 }
 
 model File {
@@ -116,6 +136,7 @@ model File {
   fileType     String
   size         Int
   subjectId    String
+  subjectCatalogId String?
   uploadedById String
   status       String     @default("pending")
   isStale      Boolean    @default(false)
@@ -123,6 +144,7 @@ model File {
   moderatedAt DateTime?
   moderatorId  String?
   asset        FileAsset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  subjectCatalog SubjectCatalog? @relation(fields: [subjectCatalogId], references: [id], onDelete: SetNull)
   subject      Subject    @relation(fields: [subjectId], references: [id], onDelete: Restrict)
   uploadedBy   User       @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
   bookmarks    Bookmark[]
@@ -133,6 +155,7 @@ model File {
   reportsCount Int        @default(0)
 
   @@index([subjectId, fileType])
+  @@index([subjectCatalogId, fileType])
   @@index([status])
   @@index([contentHash])
   @@index([assetId])
