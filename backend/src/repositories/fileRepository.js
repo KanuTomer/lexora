@@ -9,7 +9,7 @@ const include = {
     },
   },
   subjectCatalog: { select: { id: true, collegeId: true, subjectCode: true, canonicalName: true } },
-  uploadedBy: { select: { id: true, username: true, name: true, avatarUrl: true } },
+  uploadedBy: { select: { id: true, username: true, name: true, role: true, avatarUrl: true } },
 };
 
 function buildWhere(filters = {}) {

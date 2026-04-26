@@ -105,10 +105,15 @@ export default function UploadPage() {
         </p>
       ) : null}
       {subjectId ? (
-        <p className="mb-3 rounded border border-line bg-surface p-3 text-sm text-muted">
+        <p className={[
+          "mb-3 rounded border p-3 text-sm",
+          currentUser?.uploadPrivilege === "trusted"
+            ? "border-line bg-surface text-muted"
+            : "border-amber-200 bg-amber-50 text-amber-800",
+        ].join(" ")}>
           {currentUser?.uploadPrivilege === "trusted"
             ? "Uploads go live instantly"
-            : "Uploads will be reviewed before publishing"}
+            : "Your account is restricted. This file can still be uploaded, but it will need moderator approval before other students can see it."}
         </p>
       ) : null}
 

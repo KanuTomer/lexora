@@ -1,6 +1,7 @@
 const bcrypt = require("bcrypt");
 const adminRepository = require("../repositories/adminRepository");
 const auditService = require("./auditService");
+const { validateUsername } = require("../utils/username");
 
 const allowedRoles = new Set(["user", "moderator", "admin"]);
 const allowedPrivileges = new Set(["restricted", "trusted"]);
@@ -22,7 +23,7 @@ function normalizeOptionalString(value) {
 }
 
 function normalizeUsername(value) {
-  return normalizeString(value).toLowerCase();
+  return validateUsername(value).username;
 }
 
 function normalizeSlug(value) {
@@ -134,6 +135,11 @@ async function createUser(actorId, payload = {}) {
     throw createHttpError("Missing required user fields", 400, { missingFields });
   }
 
+  const usernameValidation = validateUsername(payload.username);
+  if (usernameValidation.message) {
+    throw createHttpError(usernameValidation.message, 400);
+  }
+
   if (!allowedRoles.has(role)) {
     throw createHttpError("Invalid role", 400);
   }
@@ -186,8 +192,9 @@ async function updateUser(actorId, id, payload = {}) {
 
   if (Object.prototype.hasOwnProperty.call(payload, "username")) {
     data.username = normalizeUsername(payload.username);
-    if (!data.username) {
-      throw createHttpError("Username is required", 400);
+    const usernameValidation = validateUsername(payload.username);
+    if (usernameValidation.message) {
+      throw createHttpError(usernameValidation.message, 400);
     }
   }
 

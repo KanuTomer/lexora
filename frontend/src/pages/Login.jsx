@@ -18,7 +18,7 @@ export default function Login() {
 
     try {
       setIsSubmitting(true);
-      const session = await login({ username, password });
+      const session = await login({ username: username.trim().toLowerCase(), password });
       setSession(session);
       const from = location.state?.from?.pathname;
       const target = session.user?.role === "admin" ? "/admin" : from || "/dashboard";
@@ -45,7 +45,7 @@ export default function Login() {
               className="h-10 w-full rounded border border-line px-3 text-sm outline-none focus:border-blue-600"
               autoComplete="username"
               value={username}
-              onChange={(event) => setUsername(event.target.value)}
+              onChange={(event) => setUsername(event.target.value.toLowerCase())}
             />
           </div>
           <div>

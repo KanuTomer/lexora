@@ -41,6 +41,7 @@ export default function Profile() {
   const [error, setError] = useState("");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [profileDraft, setProfileDraft] = useState({ username: "", name: "", email: "", collegeId: "", programId: "" });
+  const [profileSaveError, setProfileSaveError] = useState("");
   const [colleges, setColleges] = useState([]);
   const [programs, setPrograms] = useState([]);
   const { bookmarkedFiles, bookmarkedIds, bookmarkError, removeBookmarkedFile, toggleBookmark, updateBookmarkedFile } =
@@ -136,10 +137,17 @@ export default function Profile() {
 
   async function handleProfileSave(event) {
     event.preventDefault();
-    const updatedUser = await updateMe(profileDraft);
-    setProfile(updatedUser);
-    setCurrentUser(updatedUser);
-    setIsEditModalOpen(false);
+    setProfileSaveError("");
+
+    try {
+      const updatedUser = await updateMe(profileDraft);
+      setProfile(updatedUser);
+      setCurrentUser(updatedUser);
+      setIsEditModalOpen(false);
+    } catch (saveError) {
+      console.error("Failed to update profile", saveError);
+      setProfileSaveError(saveError.response?.data?.message ?? "Could not update profile");
+    }
   }
 
   async function handleAvatarChange(event) {
@@ -198,7 +206,24 @@ export default function Profile() {
           <div className="min-w-0 flex-1">
             <p className="font-mono text-sm text-muted">@{profile?.username}</p>
             <h1 className="text-2xl font-semibold">{profile?.name || profile?.username}</h1>
-            {isOwnProfile ? <p className="mt-1 text-sm text-muted">{profile?.email}</p> : null}
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              {isOwnProfile ? <p className="text-sm text-muted">{profile?.email}</p> : null}
+              {profile?.role === "moderator" ? (
+                <span className="rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                  Moderator
+                </span>
+              ) : null}
+              {isOwnProfile && profile?.role === "user" ? (
+                <span className={[
+                  "rounded border px-2 py-0.5 text-xs font-medium",
+                  profile?.uploadPrivilege === "trusted"
+                    ? "border-blue-200 bg-blue-50 text-blue-700"
+                    : "border-amber-200 bg-amber-50 text-amber-700",
+                ].join(" ")}>
+                  {profile?.uploadPrivilege === "trusted" ? "Trusted uploader" : "Restricted uploader"}
+                </span>
+              ) : null}
+            </div>
             <p className="mt-1 text-sm text-muted">
               {[profile?.college?.name, profile?.program?.name].filter(Boolean).join(" - ") || selectedCourse?.name || "Program not selected"}
             </p>
@@ -208,7 +233,10 @@ export default function Profile() {
             <button
               className="h-9 rounded border border-line bg-white px-3 text-sm font-medium hover:bg-surface"
               type="button"
-              onClick={() => setIsEditModalOpen(true)}
+              onClick={() => {
+                setProfileSaveError("");
+                setIsEditModalOpen(true);
+              }}
             >
               Edit
             </button>
@@ -294,8 +322,16 @@ export default function Profile() {
       )}
       {isEditModalOpen ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 px-4" role="dialog" aria-modal="true" onClick={() => setIsEditModalOpen(false)}>
-          <form className="w-full max-w-lg rounded border border-line bg-white p-4 shadow-lg" onSubmit={handleProfileSave} onClick={(event) => event.stopPropagation()}>
+          <form className="w-full max-w-3xl rounded border border-line bg-white p-4 shadow-lg" onSubmit={handleProfileSave} onClick={(event) => event.stopPropagation()}>
             <h2 className="text-lg font-semibold">Edit profile</h2>
+            {profileSaveError ? (
+              <p className="mt-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{profileSaveError}</p>
+            ) : null}
+            {(profileDraft.collegeId !== profile?.collegeId || profileDraft.programId !== profile?.programId) && profile?.role === "user" ? (
+              <p className="mt-3 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                Changing your college or program will reset your upload status to restricted. Future uploads will need moderator approval.
+              </p>
+            ) : null}
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label className="block text-sm font-medium">Username
                 <input className="mt-1 h-10 w-full rounded border border-line px-3 text-sm outline-none focus:border-blue-600" value={profileDraft.username} onChange={(event) => setProfileDraft((draft) => ({ ...draft, username: event.target.value }))} />
@@ -313,8 +349,8 @@ export default function Profile() {
                 </select>
               </label>
               <label className="block text-sm font-medium">Program
-                <select className="mt-1 h-10 w-full rounded border border-line bg-white px-3 text-sm outline-none focus:border-blue-600" value={profileDraft.programId} onChange={(event) => setProfileDraft((draft) => ({ ...draft, programId: event.target.value }))}>
-                  <option value="">Select program</option>
+                <select className="mt-1 h-10 w-full rounded border border-line bg-white px-3 text-sm outline-none focus:border-blue-600" value={profileDraft.programId} onChange={(event) => setProfileDraft((draft) => ({ ...draft, programId: event.target.value }))} disabled={!profileDraft.collegeId}>
+                  <option value="">{profileDraft.collegeId ? "Select program" : "Select college first"}</option>
                   {programs.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}
                 </select>
               </label>

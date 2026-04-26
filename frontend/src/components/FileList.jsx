@@ -1,4 +1,4 @@
-import { Download, Eye, Flag, Pencil, Star, Trash2 } from "lucide-react";
+import { Download, Flag, Pencil, Star, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import PaginationControls from "./PaginationControls.jsx";
@@ -187,7 +187,7 @@ export default function FileList({
             <th className="px-3 py-2 font-semibold">Size</th>
             <th className="px-3 py-2 text-right font-semibold" aria-label="Downloads"></th>
             {showOwnerActions ? <th className="w-20 px-3 py-2 text-right font-semibold" aria-label="File actions"></th> : null}
-            <th className="w-24 px-3 py-2 text-right font-semibold" aria-label="Preview, bookmark and report"></th>
+            <th className="w-20 px-3 py-2 text-right font-semibold" aria-label="Bookmark and report"></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line bg-white">
@@ -238,6 +238,11 @@ export default function FileList({
                       You
                     </span>
                   ) : null}
+                  {file.uploadedBy?.role === "moderator" ? (
+                    <span className="rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700">
+                      Mod
+                    </span>
+                  ) : null}
                 </span>
               </td>
               <td className="px-3 py-2 text-muted">{formatDate(file.updatedAt)}</td>
@@ -274,14 +279,6 @@ export default function FileList({
               ) : null}
               <td className="px-3 py-2 text-right">
                 <div className="inline-flex items-center justify-end gap-1">
-                  <button
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted hover:bg-white hover:text-blue-700"
-                    type="button"
-                    aria-label="Preview file"
-                    onClick={(event) => openPreview(event, file)}
-                  >
-                    <Eye className="h-4 w-4" aria-hidden="true" />
-                  </button>
                   <button
                     className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted hover:bg-white hover:text-blue-700"
                     type="button"

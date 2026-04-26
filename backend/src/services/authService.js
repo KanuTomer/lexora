@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const authRepository = require("../repositories/authRepository");
 const { jwtSecret } = require("../config/env");
 const { uploadBuffer } = require("./cloudinaryService");
+const { validateUsername } = require("../utils/username");
 
 function debugLog(...args) {
   if (process.env.NODE_ENV !== "production") {
@@ -41,7 +42,8 @@ async function signup(payload = {}, file = null) {
     hasAvatarBuffer: Boolean(file?.buffer),
   });
 
-  const username = typeof payload.username === "string" ? payload.username.trim().toLowerCase() : "";
+  const usernameValidation = validateUsername(payload.username);
+  const username = usernameValidation.username;
   const email = typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
   const password = typeof payload.password === "string" ? payload.password : "";
   const normalizedPayload = { username, email, password };
@@ -56,6 +58,10 @@ async function signup(payload = {}, file = null) {
 
   if (missingFields.length > 0) {
     throw createHttpError("Missing required signup fields", 400, { missingFields });
+  }
+
+  if (usernameValidation.message) {
+    throw createHttpError(usernameValidation.message, 400);
   }
 
   debugLog("[signup] validation passed");
@@ -128,13 +134,18 @@ async function signup(payload = {}, file = null) {
 }
 
 async function login(payload = {}) {
-  const username = typeof payload.username === "string" ? payload.username.trim().toLowerCase() : "";
+  const usernameValidation = validateUsername(payload.username);
+  const username = usernameValidation.username;
   const password = typeof payload.password === "string" ? payload.password : "";
   const normalizedPayload = { username, password };
   const missingFields = ["username", "password"].filter((field) => !normalizedPayload[field]);
 
   if (missingFields.length > 0) {
     throw createHttpError("Missing required login fields", 400, { missingFields });
+  }
+
+  if (usernameValidation.message) {
+    throw createHttpError("Invalid credentials", 401);
   }
 
   const user = await authRepository.findByUsername(username);

@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import { signup } from "../services/api.js";
 
+const usernamePattern = /^[a-z0-9._]+$/;
+
 export default function Signup() {
   const navigate = useNavigate();
   const { setSession } = useAuth();
@@ -16,9 +18,15 @@ export default function Signup() {
     event.preventDefault();
     setError("");
 
+    const normalizedUsername = username.trim().toLowerCase();
+    if (!usernamePattern.test(normalizedUsername) || normalizedUsername.length < 3 || normalizedUsername.length > 30) {
+      setError("Username must be 3 to 30 characters and use only letters, numbers, dots, and underscores.");
+      return;
+    }
+
     try {
       setIsSubmitting(true);
-      const session = await signup({ username, email, password });
+      const session = await signup({ username: normalizedUsername, email, password });
       setSession(session);
       navigate("/signup/details", { replace: true });
     } catch (signupError) {
@@ -30,10 +38,22 @@ export default function Signup() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface px-4">
-      <form className="w-full max-w-md rounded border border-line bg-white p-5" onSubmit={handleSubmit}>
+    <div className="flex min-h-screen items-center justify-center bg-surface px-4 py-8">
+      <div className="grid w-full max-w-4xl gap-4 md:grid-cols-[0.9fr_1.1fr]">
+        <section className="rounded border border-line bg-white p-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Join the right library</p>
+          <h1 className="mt-2 text-2xl font-semibold">Create your Lexora account</h1>
+          <p className="mt-3 text-sm leading-6 text-muted">
+            Your college and program decide which subjects, notes, assignments, papers, and syllabi you see.
+            You will choose that academic context in the next step before entering the dashboard.
+          </p>
+          <div className="mt-4 rounded border border-blue-100 bg-blue-50 p-3 text-sm text-blue-800">
+            Usernames are public on uploads, so keep them simple: letters, numbers, dots, and underscores only.
+          </div>
+        </section>
+        <form className="rounded border border-line bg-white p-5" onSubmit={handleSubmit}>
         <h1 className="text-2xl font-semibold">Create account</h1>
-        <p className="mt-1 text-sm text-muted">Start sharing notes on Lexora.</p>
+        <p className="mt-1 text-sm text-muted">Step 1 of 2: secure your login.</p>
         {error ? <p className="mt-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
         <div className="mt-4 space-y-4">
           <div>
@@ -42,8 +62,11 @@ export default function Signup() {
               id="username"
               className="h-10 w-full rounded border border-line px-3 text-sm outline-none focus:border-blue-600"
               value={username}
-              onChange={(event) => setUsername(event.target.value)}
+              autoComplete="username"
+              placeholder="iitp_tester"
+              onChange={(event) => setUsername(event.target.value.toLowerCase())}
             />
+            <p className="mt-1 text-xs text-muted">3-30 characters. No spaces.</p>
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium" htmlFor="email">Email</label>
@@ -76,7 +99,8 @@ export default function Signup() {
         <p className="mt-4 text-sm text-muted">
           Already have an account? <Link className="font-medium text-blue-700 hover:underline" to="/login">Log in</Link>
         </p>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }

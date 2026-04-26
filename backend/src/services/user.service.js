@@ -1,5 +1,6 @@
 const userRepository = require("../repositories/user.repository");
 const { destroyAsset, uploadBuffer } = require("./cloudinaryService");
+const { validateUsername } = require("../utils/username");
 
 async function listUsers() {
   return userRepository.findMany();
@@ -35,14 +36,21 @@ async function getCurrentUser(id) {
 
 async function updateCurrentUser(id, payload) {
   const data = {};
+  const existingUser = await userRepository.findById(id, { includeEmail: true });
+  if (!existingUser) {
+    const error = new Error("User not found");
+    error.statusCode = 404;
+    throw error;
+  }
 
   if (Object.prototype.hasOwnProperty.call(payload, "username")) {
-    const username = payload.username?.trim().toLowerCase();
-    if (!username) {
-      const error = new Error("Username is required");
+    const usernameValidation = validateUsername(payload.username);
+    if (usernameValidation.message) {
+      const error = new Error(usernameValidation.message);
       error.statusCode = 400;
       throw error;
     }
+    const username = usernameValidation.username;
     const existing = await userRepository.findByUsername(username);
     if (existing && existing.id !== id) {
       const error = new Error("Username already taken");
@@ -83,7 +91,6 @@ async function updateCurrentUser(id, payload) {
   if (data.programId) {
     let nextCollegeId = Object.prototype.hasOwnProperty.call(data, "collegeId") ? data.collegeId : undefined;
     if (!nextCollegeId) {
-      const existingUser = await userRepository.findById(id, { includeEmail: true });
       nextCollegeId = existingUser?.collegeId;
     }
     const program = await userRepository.findProgramById(data.programId);
@@ -112,7 +119,23 @@ async function updateCurrentUser(id, payload) {
     throw error;
   }
 
-  const user = await userRepository.update(id, data);
+  const collegeChanged = Object.prototype.hasOwnProperty.call(data, "collegeId") && data.collegeId !== existingUser.collegeId;
+  const programChanged = Object.prototype.hasOwnProperty.call(data, "programId") && data.programId !== existingUser.programId;
+  if ((collegeChanged || programChanged) && existingUser.role === "user") {
+    data.uploadPrivilege = "restricted";
+  }
+
+  let user;
+  try {
+    user = await userRepository.update(id, data);
+  } catch (error) {
+    if (error.code === "P2002") {
+      const conflict = new Error("Username or email already exists");
+      conflict.statusCode = 400;
+      throw conflict;
+    }
+    throw error;
+  }
   return {
     ...user,
     stats: await userRepository.getStats(id),
@@ -120,6 +143,12 @@ async function updateCurrentUser(id, payload) {
 }
 
 async function updateCurrentUserDetails(id, payload) {
+  if (!payload.name?.trim() || !payload.collegeId || !payload.programId) {
+    const error = new Error("Name, college, and program are required");
+    error.statusCode = 400;
+    throw error;
+  }
+
   return updateCurrentUser(id, {
     name: payload.name,
     collegeId: payload.collegeId,
