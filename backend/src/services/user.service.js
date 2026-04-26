@@ -80,6 +80,32 @@ async function updateCurrentUser(id, payload) {
     data.programId = payload.programId || null;
   }
 
+  if (data.programId) {
+    let nextCollegeId = Object.prototype.hasOwnProperty.call(data, "collegeId") ? data.collegeId : undefined;
+    if (!nextCollegeId) {
+      const existingUser = await userRepository.findById(id, { includeEmail: true });
+      nextCollegeId = existingUser?.collegeId;
+    }
+    const program = await userRepository.findProgramById(data.programId);
+    if (!program) {
+      const error = new Error("Program not found");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (!program.courseId) {
+      const error = new Error("Program is not linked to a course");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (nextCollegeId && program.collegeId !== nextCollegeId) {
+      const error = new Error("Program not found for selected college");
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
   if (Object.keys(data).length === 0) {
     const error = new Error("No profile fields provided");
     error.statusCode = 400;

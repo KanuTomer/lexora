@@ -59,6 +59,10 @@ async function validateUserRelations({ collegeId, programId }) {
     if (!program) {
       throw createHttpError("Program not found for selected college", 404);
     }
+
+    if (!program.courseId) {
+      throw createHttpError("Program is not linked to a course", 400);
+    }
   }
 }
 
@@ -333,6 +337,7 @@ async function createCourse(actorId, payload = {}) {
   }
 
   const course = await adminRepository.createCourse({ name, code, collegeId });
+  await adminRepository.upsertProgramForCourse(course);
   await auditService.logAction({ action: "admin.course.created", actorId, targetId: course.id });
   return course;
 }
@@ -454,6 +459,7 @@ async function importAcademicData(actorId, payload = {}) {
       code: courseInput.code,
       name: courseInput.name,
     });
+    await adminRepository.upsertProgramForCourse(course);
     summary.courses += 1;
 
     for (const semesterInput of courseInput.semesters) {

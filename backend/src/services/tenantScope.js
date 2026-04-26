@@ -14,13 +14,21 @@ function getCourseScope(user) {
     return {};
   }
 
-  if (!user.collegeId || !user.programId || !user.program?.name) {
+  if (!user.collegeId || !user.programId || !user.program) {
     throw createHttpError("Complete your college and program details before browsing academic data", 403);
+  }
+
+  if (user.program.collegeId !== user.collegeId) {
+    throw createHttpError("Program-college mismatch", 403);
+  }
+
+  if (!user.program.courseId) {
+    throw createHttpError("Program is not linked to a course; contact an administrator", 403);
   }
 
   return {
     collegeId: user.collegeId,
-    name: user.program.name,
+    id: user.program.courseId,
   };
 }
 
@@ -35,11 +43,11 @@ function assertSubjectInScope(subject, user) {
     return;
   }
 
-  if (subject?.course?.name !== user.program?.name) {
+  if (subject?.course?.id !== user.program?.courseId) {
     throw createHttpError("Program-course mismatch", 403);
   }
 
-  if (subject?.course?.collegeId !== courseScope.collegeId || subject?.course?.name !== courseScope.name) {
+  if (subject?.course?.collegeId !== courseScope.collegeId || subject?.course?.id !== courseScope.id) {
     throw createHttpError("Subject not found", 404);
   }
 }

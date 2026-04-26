@@ -10,7 +10,7 @@ const userSelect = {
   collegeId: true,
   programId: true,
   college: { select: { id: true, name: true } },
-  program: { select: { id: true, name: true, collegeId: true } },
+  program: { select: { id: true, name: true, collegeId: true, courseId: true } },
   createdAt: true,
 };
 
@@ -65,7 +65,7 @@ function findColleges() {
   return prisma.college.findMany({
     orderBy: { name: "asc" },
     include: {
-      programs: { orderBy: { name: "asc" } },
+      programs: { orderBy: { name: "asc" }, include: { course: { select: { id: true, name: true, code: true } } } },
       courses: { orderBy: { name: "asc" } },
       _count: { select: { users: true, programs: true, courses: true } },
     },
@@ -100,7 +100,10 @@ function findPrograms(filters = {}) {
   return prisma.program.findMany({
     where: { collegeId: filters.collegeId },
     orderBy: { name: "asc" },
-    include: { college: { select: { id: true, name: true } } },
+    include: {
+      college: { select: { id: true, name: true } },
+      course: { select: { id: true, name: true, code: true, collegeId: true } },
+    },
   });
 }
 
@@ -182,6 +185,28 @@ function upsertCourse(data) {
   });
 }
 
+async function upsertProgramForCourse(course) {
+  const existingByCourse = await prisma.program.findFirst({
+    where: { courseId: course.id },
+  });
+
+  if (existingByCourse) {
+    return prisma.program.update({
+      where: { id: existingByCourse.id },
+      data: {
+        collegeId: course.collegeId,
+        name: course.name,
+      },
+    });
+  }
+
+  return prisma.program.upsert({
+    where: { collegeId_name: { collegeId: course.collegeId, name: course.name } },
+    update: { courseId: course.id },
+    create: { collegeId: course.collegeId, name: course.name, courseId: course.id },
+  });
+}
+
 function upsertSemester(data) {
   return prisma.semester.upsert({
     where: { courseId_number: { courseId: data.courseId, number: data.number } },
@@ -260,6 +285,7 @@ module.exports = {
   updateUser,
   upsertCollege,
   upsertCourse,
+  upsertProgramForCourse,
   upsertSemester,
   upsertSubject,
 };

@@ -11,7 +11,7 @@ const publicSelect = {
   collegeId: true,
   programId: true,
   college: { select: { id: true, name: true } },
-  program: { select: { id: true, name: true, collegeId: true } },
+  program: { select: { id: true, name: true, collegeId: true, courseId: true } },
   createdAt: true,
 };
 
@@ -74,6 +74,13 @@ async function findByUsername(username) {
   return prisma.user.findUnique({ where: { username } });
 }
 
+async function findProgramById(id) {
+  return prisma.program.findUnique({
+    where: { id },
+    select: { id: true, collegeId: true, courseId: true },
+  });
+}
+
 async function adminFindMany(filters = {}) {
   return prisma.user.findMany({
     where: buildUserWhere(filters),
@@ -111,4 +118,15 @@ async function getStats(id) {
   };
 }
 
-module.exports = { findMany, findById, findByEmail, findByUsername, create, update, getStats, adminFindMany, findScopedUsers };
+module.exports = {
+  findMany,
+  findById,
+  findByEmail,
+  findByUsername,
+  findProgramById,
+  create,
+  update,
+  getStats,
+  adminFindMany,
+  findScopedUsers,
+};

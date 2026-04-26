@@ -48,12 +48,15 @@ model Program {
   id        String   @id @default(cuid())
   name      String
   collegeId String
+  courseId  String?
   college   College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  course    Course?  @relation(fields: [courseId], references: [id], onDelete: SetNull)
   users     User[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([collegeId, name])
+  @@index([courseId])
   @@map("programs")
 }
 
@@ -63,6 +66,7 @@ model Course {
   code       String
   collegeId  String
   college    College    @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  programs   Program[]
   semesters  Semester[]
   subjects   Subject[]
   createdAt  DateTime   @default(now())

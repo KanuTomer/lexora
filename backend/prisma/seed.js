@@ -39,10 +39,11 @@ async function main() {
         name: gbuCourse.name,
       },
     },
-    update: {},
+    update: { courseId: gbuCourse.id },
     create: {
       name: gbuCourse.name,
       collegeId: gbu.id,
+      courseId: gbuCourse.id,
     },
   });
 
@@ -182,10 +183,11 @@ async function main() {
         name: demoCourse.name,
       },
     },
-    update: {},
+    update: { courseId: demoCourse.id },
     create: {
       name: demoCourse.name,
       collegeId: demo.id,
+      courseId: demoCourse.id,
     },
   });
 

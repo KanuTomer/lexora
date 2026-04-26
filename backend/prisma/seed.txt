@@ -17,8 +17,8 @@ async function main() {
 
   const program = await prisma.program.upsert({
     where: { collegeId_name: { collegeId: college.id, name: course.name } },
-    update: {},
-    create: { name: course.name, collegeId: college.id },
+    update: { courseId: course.id },
+    create: { name: course.name, collegeId: college.id, courseId: course.id },
   });
 
   const semester = await prisma.semester.upsert({
