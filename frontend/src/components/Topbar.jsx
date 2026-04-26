@@ -61,7 +61,7 @@ export default function Topbar() {
   return (
     <header className="sticky top-0 z-20 grid h-14 grid-cols-[240px_minmax(280px,720px)_1fr] items-center gap-4 border-b border-line bg-white px-4">
       <Link to="/dashboard" className="flex min-w-0 items-center" aria-label="Lexora dashboard">
-        <img className="h-8 w-auto" src="/lexora.svg" alt="Lexora" />
+        <img className="h-6" src="/lexora.svg" alt="Lexora" />
       </Link>
 
       <form className="relative flex w-full items-center justify-self-center" onSubmit={handleSearchSubmit}>
