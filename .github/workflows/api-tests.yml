@@ -1,0 +1,24 @@
+name: API Tests
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Install Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install Newman
+        run: npm install -g newman
+
+      - name: Run tests
+        run: newman run tests/collection.json --env-var "baseUrl=https://lexora-bvpt.onrender.com/api" -r cli,json --reporter-json-export tests/newman-report.json
