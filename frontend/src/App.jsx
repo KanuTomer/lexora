@@ -1,7 +1,13 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import AppLayout from "./layouts/AppLayout.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
-import AdminPanel from "./pages/AdminPanel.jsx";
+import AdminColleges from "./pages/admin/AdminColleges.jsx";
+import AdminCourses from "./pages/admin/AdminCourses.jsx";
+import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
+import AdminLayout from "./pages/admin/AdminLayout.jsx";
+import AdminSemesters from "./pages/admin/AdminSemesters.jsx";
+import AdminSubjects from "./pages/admin/AdminSubjects.jsx";
+import AdminUsers from "./pages/admin/AdminUsers.jsx";
 import BookmarksPage from "./pages/BookmarksPage.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import FileDetailsPage from "./pages/FileDetailsPage.jsx";
@@ -29,11 +35,26 @@ export default function App() {
         }
       />
       <Route path="/" element={<LandingPage />} />
-        <Route element={<AppLayout />}>
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute role="admin">
+            <AdminLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<AdminDashboard />} />
+        <Route path="users" element={<AdminUsers />} />
+        <Route path="colleges" element={<AdminColleges />} />
+        <Route path="courses" element={<AdminCourses />} />
+        <Route path="semesters" element={<AdminSemesters />} />
+        <Route path="subjects" element={<AdminSubjects />} />
+      </Route>
+      <Route element={<AppLayout />}>
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute disallowRole="admin">
               <Dashboard />
             </ProtectedRoute>
           }
@@ -41,7 +62,7 @@ export default function App() {
         <Route
           path="/bookmarks"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute disallowRole="admin">
               <BookmarksPage />
             </ProtectedRoute>
           }
@@ -49,7 +70,7 @@ export default function App() {
         <Route
           path="/search"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute disallowRole="admin">
               <SearchResultsPage />
             </ProtectedRoute>
           }
@@ -57,7 +78,7 @@ export default function App() {
         <Route
           path="/subjects/:subjectId"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute disallowRole="admin">
               <SubjectPage />
             </ProtectedRoute>
           }
@@ -65,7 +86,7 @@ export default function App() {
         <Route
           path="/upload"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute disallowRole="admin">
               <UploadPage />
             </ProtectedRoute>
           }
@@ -73,7 +94,7 @@ export default function App() {
         <Route
           path="/files/:fileId"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute disallowRole="admin">
               <FileDetailsPage />
             </ProtectedRoute>
           }
@@ -81,23 +102,15 @@ export default function App() {
         <Route
           path="/moderation"
           element={
-            <ProtectedRoute role={["moderator", "admin"]}>
+            <ProtectedRoute role="moderator">
               <ModerationPanel />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute role="admin">
-              <AdminPanel />
             </ProtectedRoute>
           }
         />
         <Route
           path="/profile"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute disallowRole="admin">
               <Profile />
             </ProtectedRoute>
           }

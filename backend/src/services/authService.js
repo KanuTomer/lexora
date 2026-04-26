@@ -35,8 +35,8 @@ async function signup(payload = {}, file = null) {
     hasAvatarBuffer: Boolean(file?.buffer),
   });
 
-  const username = typeof payload.username === "string" ? payload.username.trim() : "";
-  const email = typeof payload.email === "string" ? payload.email.trim() : "";
+  const username = typeof payload.username === "string" ? payload.username.trim().toLowerCase() : "";
+  const email = typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
   const password = typeof payload.password === "string" ? payload.password : "";
   const normalizedPayload = { username, email, password };
 
@@ -56,14 +56,14 @@ async function signup(payload = {}, file = null) {
 
   const existingUser = await authRepository.findByEmail(email);
   if (existingUser) {
-    throw createHttpError("Email is already registered", 409);
+    throw createHttpError("Email is already registered", 400);
   }
 
   console.log("[signup] email availability check passed");
 
   const existingUsername = await authRepository.findByUsername(username);
   if (existingUsername) {
-    throw createHttpError("Username is already taken", 409);
+    throw createHttpError("Username already taken", 400);
   }
 
   console.log("[signup] username availability check passed");
@@ -98,13 +98,21 @@ async function signup(payload = {}, file = null) {
   }
 
   console.log("[signup] before prisma.user.create");
-  const user = await authRepository.createUser({
-    username,
-    email,
-    password: hashedPassword,
-    avatarUrl,
-    avatarPublicId,
-  });
+  let user;
+  try {
+    user = await authRepository.createUser({
+      username,
+      email,
+      password: hashedPassword,
+      avatarUrl,
+      avatarPublicId,
+    });
+  } catch (error) {
+    if (error.code === "P2002") {
+      throw createHttpError("Username already exists", 400);
+    }
+    throw error;
+  }
   console.log("[signup] prisma.user.create succeeded", { userId: user.id });
 
   return {
@@ -114,7 +122,7 @@ async function signup(payload = {}, file = null) {
 }
 
 async function login(payload = {}) {
-  const username = typeof payload.username === "string" ? payload.username.trim() : "";
+  const username = typeof payload.username === "string" ? payload.username.trim().toLowerCase() : "";
   const password = typeof payload.password === "string" ? payload.password : "";
   const normalizedPayload = { username, password };
   const missingFields = ["username", "password"].filter((field) => !normalizedPayload[field]);

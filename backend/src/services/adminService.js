@@ -21,6 +21,10 @@ function normalizeOptionalString(value) {
   return normalized || null;
 }
 
+function normalizeUsername(value) {
+  return normalizeString(value).toLowerCase();
+}
+
 function normalizeSlug(value) {
   return normalizeString(value).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
@@ -29,14 +33,14 @@ async function assertUniqueUser({ id, email, username }) {
   if (email) {
     const existingEmail = await adminRepository.findUserByEmail(email);
     if (existingEmail && existingEmail.id !== id) {
-      throw createHttpError("Email is already registered", 409);
+      throw createHttpError("Email is already registered", 400);
     }
   }
 
   if (username) {
     const existingUsername = await adminRepository.findUserByUsername(username);
     if (existingUsername && existingUsername.id !== id) {
-      throw createHttpError("Username is already taken", 409);
+      throw createHttpError("Username already taken", 400);
     }
   }
 }
@@ -59,6 +63,10 @@ async function validateUserRelations({ collegeId, programId }) {
 }
 
 function listUsers(query = {}) {
+  if (!query.collegeId) {
+    return [];
+  }
+
   return adminRepository.findUsers({
     collegeId: query.collegeId || undefined,
     programId: query.programId || undefined,
@@ -68,7 +76,7 @@ function listUsers(query = {}) {
 }
 
 async function createUser(actorId, payload = {}) {
-  const username = normalizeString(payload.username);
+  const username = normalizeUsername(payload.username);
   const email = normalizeString(payload.email).toLowerCase();
   const password = typeof payload.password === "string" ? payload.password : "";
   const role = payload.role || "user";
@@ -92,16 +100,24 @@ async function createUser(actorId, payload = {}) {
   await assertUniqueUser({ email, username });
   await validateUserRelations({ collegeId, programId });
 
-  const user = await adminRepository.createUser({
-    username,
-    email,
-    name: normalizeOptionalString(payload.name),
-    password: await bcrypt.hash(password, 12),
-    role,
-    uploadPrivilege,
-    collegeId,
-    programId,
-  });
+  let user;
+  try {
+    user = await adminRepository.createUser({
+      username,
+      email,
+      name: normalizeOptionalString(payload.name),
+      password: await bcrypt.hash(password, 12),
+      role,
+      uploadPrivilege,
+      collegeId,
+      programId,
+    });
+  } catch (error) {
+    if (error.code === "P2002") {
+      throw createHttpError("Username already exists", 400);
+    }
+    throw error;
+  }
 
   await auditService.logAction({
     action: "admin.user.created",
@@ -122,7 +138,7 @@ async function updateUser(actorId, id, payload = {}) {
   const data = {};
 
   if (Object.prototype.hasOwnProperty.call(payload, "username")) {
-    data.username = normalizeString(payload.username);
+    data.username = normalizeUsername(payload.username);
     if (!data.username) {
       throw createHttpError("Username is required", 400);
     }
@@ -175,7 +191,15 @@ async function updateUser(actorId, id, payload = {}) {
     programId: Object.prototype.hasOwnProperty.call(data, "programId") ? data.programId : existing.programId,
   });
 
-  const user = await adminRepository.updateUser(id, data);
+  let user;
+  try {
+    user = await adminRepository.updateUser(id, data);
+  } catch (error) {
+    if (error.code === "P2002") {
+      throw createHttpError("Username already exists", 400);
+    }
+    throw error;
+  }
   await auditService.logAction({
     action: "admin.user.updated",
     actorId,
@@ -276,10 +300,16 @@ async function deleteCollege(actorId, id) {
 }
 
 function listPrograms(query = {}) {
+  if (!query.collegeId) {
+    return [];
+  }
   return adminRepository.findPrograms({ collegeId: query.collegeId || undefined });
 }
 
 function listCourses(query = {}) {
+  if (!query.collegeId) {
+    return [];
+  }
   return adminRepository.findCourses({ collegeId: query.collegeId || undefined });
 }
 
@@ -308,6 +338,9 @@ async function createCourse(actorId, payload = {}) {
 }
 
 function listSemesters(query = {}) {
+  if (!query.courseId) {
+    return [];
+  }
   return adminRepository.findSemesters({ courseId: query.courseId || undefined });
 }
 
@@ -335,10 +368,121 @@ async function createSemester(actorId, payload = {}) {
 }
 
 function listSubjects(query = {}) {
+  if (!query.collegeId && !query.courseId) {
+    return [];
+  }
+
   return adminRepository.findSubjects({
+    collegeId: query.collegeId || undefined,
     courseId: query.courseId || undefined,
     semesterId: query.semesterId || undefined,
   });
+}
+
+function validateImportPayload(payload = {}) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw createHttpError("Invalid import payload", 400);
+  }
+
+  const collegeName = normalizeString(payload.college?.name);
+  const collegeSlug = normalizeSlug(payload.college?.slug || collegeName);
+  if (!collegeName || !collegeSlug) {
+    throw createHttpError("Import requires college name and slug", 400);
+  }
+
+  if (!Array.isArray(payload.courses) || payload.courses.length === 0) {
+    throw createHttpError("Import requires at least one course", 400);
+  }
+
+  const subjectKeys = new Set();
+  const courses = payload.courses.map((course, courseIndex) => {
+    const code = normalizeString(course.code).toUpperCase();
+    const name = normalizeString(course.name);
+    if (!code || !name) {
+      throw createHttpError(`Course at index ${courseIndex} requires code and name`, 400);
+    }
+
+    if (!Array.isArray(course.semesters)) {
+      throw createHttpError(`Course ${code} requires a semesters array`, 400);
+    }
+
+    const semesters = course.semesters.map((semester, semesterIndex) => {
+      const number = Number(semester.number);
+      if (!Number.isInteger(number) || number < 1) {
+        throw createHttpError(`Invalid semester number at course ${code}, index ${semesterIndex}`, 400);
+      }
+
+      if (!Array.isArray(semester.subjects)) {
+        throw createHttpError(`Semester ${number} in ${code} requires a subjects array`, 400);
+      }
+
+      const subjects = semester.subjects.map((subject, subjectIndex) => {
+        const subjectCode = normalizeString(subject.code || subject.subjectCode).toUpperCase();
+        const subjectName = normalizeString(subject.name || subject.subjectName);
+        if (!subjectCode || !subjectName) {
+          throw createHttpError(`Invalid subject at ${code} semester ${number}, index ${subjectIndex}`, 400);
+        }
+
+        const key = `${code}:${number}:${subjectCode}`;
+        if (subjectKeys.has(key)) {
+          throw createHttpError(`Duplicate subject combination in import: ${code} semester ${number} ${subjectCode}`, 400);
+        }
+        subjectKeys.add(key);
+
+        return { subjectCode, subjectName };
+      });
+
+      return { number, subjects };
+    });
+
+    return { code, name, semesters };
+  });
+
+  return { college: { name: collegeName, slug: collegeSlug }, courses };
+}
+
+async function importAcademicData(actorId, payload = {}) {
+  const data = validateImportPayload(payload);
+  const summary = { colleges: 0, courses: 0, semesters: 0, subjects: 0 };
+
+  const college = await adminRepository.upsertCollege(data.college);
+  summary.colleges += 1;
+
+  for (const courseInput of data.courses) {
+    const course = await adminRepository.upsertCourse({
+      collegeId: college.id,
+      code: courseInput.code,
+      name: courseInput.name,
+    });
+    summary.courses += 1;
+
+    for (const semesterInput of courseInput.semesters) {
+      const semester = await adminRepository.upsertSemester({
+        courseId: course.id,
+        number: semesterInput.number,
+      });
+      summary.semesters += 1;
+
+      for (const subjectInput of semesterInput.subjects) {
+        await adminRepository.upsertSubject({
+          courseId: course.id,
+          semesterId: semester.id,
+          subjectCode: subjectInput.subjectCode,
+          subjectName: subjectInput.subjectName,
+        });
+        summary.subjects += 1;
+      }
+    }
+  }
+
+  await auditService.logAction({
+    action: "admin.academic.imported",
+    actorId,
+    targetId: college.id,
+    metadata: summary,
+  });
+
+  return { college, summary };
 }
 
 async function validateSubjectRelations(courseId, semesterId) {
@@ -442,6 +586,7 @@ module.exports = {
   deleteCollege,
   deleteSubject,
   deleteUser,
+  importAcademicData,
   listColleges,
   listCourses,
   listPrograms,

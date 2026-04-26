@@ -37,18 +37,19 @@ async function updateCurrentUser(id, payload) {
   const data = {};
 
   if (Object.prototype.hasOwnProperty.call(payload, "username")) {
-    if (!payload.username?.trim()) {
+    const username = payload.username?.trim().toLowerCase();
+    if (!username) {
       const error = new Error("Username is required");
       error.statusCode = 400;
       throw error;
     }
-    const existing = await userRepository.findByUsername(payload.username.trim());
+    const existing = await userRepository.findByUsername(username);
     if (existing && existing.id !== id) {
-      const error = new Error("Username is already taken");
-      error.statusCode = 409;
+      const error = new Error("Username already taken");
+      error.statusCode = 400;
       throw error;
     }
-    data.username = payload.username.trim();
+    data.username = username;
   }
 
   if (Object.prototype.hasOwnProperty.call(payload, "email")) {
@@ -57,13 +58,14 @@ async function updateCurrentUser(id, payload) {
       error.statusCode = 400;
       throw error;
     }
-    const existing = await userRepository.findByEmail(payload.email.trim());
+    const email = payload.email.trim().toLowerCase();
+    const existing = await userRepository.findByEmail(email);
     if (existing && existing.id !== id) {
       const error = new Error("Email is already registered");
-      error.statusCode = 409;
+      error.statusCode = 400;
       throw error;
     }
-    data.email = payload.email.trim();
+    data.email = email;
   }
 
   if (Object.prototype.hasOwnProperty.call(payload, "name")) {

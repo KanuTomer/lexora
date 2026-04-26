@@ -20,7 +20,9 @@ export default function Login() {
       setIsSubmitting(true);
       const session = await login({ username, password });
       setSession(session);
-      navigate(location.state?.from?.pathname ?? "/dashboard", { replace: true });
+      const from = location.state?.from?.pathname;
+      const target = session.user?.role === "admin" ? "/admin" : from || "/dashboard";
+      navigate(target, { replace: true });
     } catch (loginError) {
       console.error("Login failed", loginError);
       setError(loginError.response?.data?.message ?? "Login failed");

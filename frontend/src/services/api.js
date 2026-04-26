@@ -259,3 +259,8 @@ export async function deleteAdminSubject(id) {
   const response = await api.delete(`/admin/subjects/${id}`);
   return response.data.data;
 }
+
+export async function importAdminAcademicData(payload) {
+  const response = await api.post("/admin/import", payload);
+  return response.data.data;
+}

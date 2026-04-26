@@ -10,6 +10,11 @@ function errorHandler(error, req, res, next) {
 
   const isMulterError = error.name === "MulterError";
 
+  if (error.type === "entity.parse.failed") {
+    error.statusCode = 400;
+    error.message = "Invalid JSON body";
+  }
+
   if (isMulterError && error.code === "LIMIT_FILE_SIZE") {
     error.statusCode = 400;
     error.message = "File too large (max 10MB)";

@@ -90,6 +90,11 @@ async function deleteSubject(req, res) {
   res.json({ data: subject });
 }
 
+async function importAcademicData(req, res) {
+  const result = await adminService.importAcademicData(req.user.id, req.body);
+  res.status(201).json({ data: result });
+}
+
 module.exports = {
   createCollege,
   createCourse,
@@ -99,6 +104,7 @@ module.exports = {
   deleteCollege,
   deleteSubject,
   deleteUser,
+  importAcademicData,
   listColleges,
   listCourses,
   listPrograms,

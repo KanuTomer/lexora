@@ -5,6 +5,8 @@ const { asyncHandler } = require("../middleware/asyncHandler");
 
 router.use(requireAuth, requireRole("admin"));
 
+router.post("/import", asyncHandler(adminController.importAcademicData));
+
 router.get("/users", asyncHandler(adminController.listUsers));
 router.post("/users", asyncHandler(adminController.createUser));
 router.patch("/users/:id", asyncHandler(adminController.updateUser));

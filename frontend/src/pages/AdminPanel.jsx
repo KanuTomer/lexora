@@ -46,8 +46,8 @@ function labelForSection(section) {
   return section.charAt(0).toUpperCase() + section.slice(1);
 }
 
-export default function AdminPanel() {
-  const [activeSection, setActiveSection] = useState("users");
+export default function AdminPanel({ initialSection = "users", lockedSection = false, embedded = false }) {
+  const [activeSection, setActiveSection] = useState(initialSection);
   const [colleges, setColleges] = useState([]);
   const [programs, setPrograms] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -86,8 +86,16 @@ export default function AdminPanel() {
     return data;
   }
 
-  async function loadCourses(collegeId = "") {
-    const data = await getAdminCourses({ collegeId: collegeId || undefined });
+  async function loadCourses(collegeIds = "") {
+    const ids = Array.isArray(collegeIds) ? collegeIds.filter(Boolean) : [collegeIds].filter(Boolean);
+    const uniqueIds = [...new Set(ids)];
+    if (uniqueIds.length === 0) {
+      setCourses([]);
+      return [];
+    }
+
+    const results = await Promise.all(uniqueIds.map((collegeId) => getAdminCourses({ collegeId })));
+    const data = results.flat();
     setCourses(data);
     return data;
   }
@@ -115,6 +123,7 @@ export default function AdminPanel() {
 
   async function loadSubjects() {
     const data = await getAdminSubjects({
+      collegeId: subjectForm.collegeId || undefined,
       courseId: subjectForm.courseId || undefined,
       semesterId: subjectForm.semesterId || undefined,
     });
@@ -125,7 +134,7 @@ export default function AdminPanel() {
     try {
       setError("");
       setIsLoading(true);
-      await Promise.all([loadColleges(), loadCourses(), loadSemesters(), loadUsers(), loadSubjects()]);
+      await Promise.all([loadColleges(), loadUsers(), loadSubjects()]);
     } catch (loadError) {
       console.error("Failed to load admin data", loadError);
       setError(getErrorMessage(loadError, "Failed to load admin data"));
@@ -164,11 +173,25 @@ export default function AdminPanel() {
   }, [filters]);
 
   useEffect(() => {
+    loadCourses([courseForm.collegeId, semesterForm.collegeId, subjectForm.collegeId]).catch((loadError) => {
+      console.error("Failed to load courses", loadError);
+      setError(getErrorMessage(loadError, "Failed to load courses"));
+    });
+  }, [courseForm.collegeId, semesterForm.collegeId, subjectForm.collegeId]);
+
+  useEffect(() => {
     loadSemesters(subjectForm.courseId).catch((loadError) => {
       console.error("Failed to load semesters", loadError);
       setError(getErrorMessage(loadError, "Failed to load semesters"));
     });
   }, [subjectForm.courseId]);
+
+  useEffect(() => {
+    loadSubjects().catch((loadError) => {
+      console.error("Failed to load subjects", loadError);
+      setError(getErrorMessage(loadError, "Failed to load subjects"));
+    });
+  }, [subjectForm.collegeId, subjectForm.courseId, subjectForm.semesterId]);
 
   function showNotice(message) {
     setNotice(message);
@@ -258,7 +281,7 @@ export default function AdminPanel() {
 
       resetCollegeForm();
       await loadColleges();
-      await loadCourses();
+      await loadCourses(courseForm.collegeId);
     } catch (submitError) {
       console.error("Failed to save college", submitError);
       setError(getErrorMessage(submitError, "Failed to save college"));
@@ -286,7 +309,7 @@ export default function AdminPanel() {
       setCourseForm({ ...emptyCourse, collegeId: courseForm.collegeId });
       setSemesterForm((current) => ({ ...current, collegeId: course.collegeId, courseId: course.id }));
       setSubjectForm((current) => ({ ...current, collegeId: course.collegeId, courseId: course.id, semesterId: "" }));
-      await loadCourses();
+      await loadCourses(courseForm.collegeId);
       showNotice("Course created");
     } catch (submitError) {
       console.error("Failed to create course", submitError);
@@ -345,8 +368,14 @@ export default function AdminPanel() {
         showNotice("Subject created");
       }
 
-      resetSubjectForm();
-      await Promise.all([loadSubjects(), loadCourses()]);
+      setEditingSubjectId("");
+      setSubjectForm((current) => ({
+        ...emptySubject,
+        collegeId: current.collegeId,
+        courseId: current.courseId,
+        semesterId: current.semesterId,
+      }));
+      await Promise.all([loadSubjects(), loadCourses(subjectForm.collegeId)]);
     } catch (submitError) {
       console.error("Failed to save subject", submitError);
       setError(getErrorMessage(submitError, "Failed to save subject"));
@@ -367,29 +396,37 @@ export default function AdminPanel() {
 
   return (
     <div>
-      <Breadcrumb items={[{ label: "Admin" }]} />
-      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Admin Panel</h1>
-          <p className="mt-1 text-sm text-muted">Manage users, colleges, and the academic subject structure.</p>
-        </div>
-        {isLoading ? <span className="text-sm text-muted">Loading...</span> : null}
-      </div>
+      {!embedded ? (
+        <>
+          <Breadcrumb items={[{ label: "Admin" }]} />
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-semibold">Admin Panel</h1>
+              <p className="mt-1 text-sm text-muted">Manage users, colleges, and the academic subject structure.</p>
+            </div>
+            {isLoading ? <span className="text-sm text-muted">Loading...</span> : null}
+          </div>
+        </>
+      ) : isLoading ? (
+        <p className="mb-3 text-sm text-muted">Loading...</p>
+      ) : null}
 
-      <div className="mb-4 flex flex-wrap gap-2 border-b border-line pb-3">
-        {sections.map((section) => (
-          <button
-            key={section}
-            className={`rounded border px-3 py-2 text-sm font-medium ${
-              activeSection === section ? "border-blue-700 bg-blue-700 text-white" : "border-line bg-white text-ink"
-            }`}
-            type="button"
-            onClick={() => setActiveSection(section)}
-          >
-            {labelForSection(section)}
-          </button>
-        ))}
-      </div>
+      {!lockedSection ? (
+        <div className="mb-4 flex flex-wrap gap-2 border-b border-line pb-3">
+          {sections.map((section) => (
+            <button
+              key={section}
+              className={`rounded border px-3 py-2 text-sm font-medium ${
+                activeSection === section ? "border-blue-700 bg-blue-700 text-white" : "border-line bg-white text-ink"
+              }`}
+              type="button"
+              onClick={() => setActiveSection(section)}
+            >
+              {labelForSection(section)}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {notice ? <p className="mb-3 rounded border border-green-200 bg-green-50 p-3 text-sm text-green-700">{notice}</p> : null}
       {error ? <p className="mb-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
@@ -398,7 +435,7 @@ export default function AdminPanel() {
         <section className="space-y-4">
           <div className="grid gap-3 md:grid-cols-4">
             <select className="h-9 rounded border border-line bg-white px-2 text-sm" value={filters.collegeId} onChange={(event) => setFilters((current) => ({ ...current, collegeId: event.target.value, programId: "" }))}>
-              <option value="">All colleges</option>
+              <option value="">Select college</option>
               {colleges.map((college) => <option key={college.id} value={college.id}>{college.name}</option>)}
             </select>
             <select className="h-9 rounded border border-line bg-white px-2 text-sm" value={filters.programId} onChange={(event) => setFilters((current) => ({ ...current, programId: event.target.value }))}>
@@ -468,7 +505,7 @@ export default function AdminPanel() {
                     </td>
                   </tr>
                 ))}
-                {users.length === 0 ? <tr><td className="px-3 py-6 text-center text-muted" colSpan="7">No users found</td></tr> : null}
+                {users.length === 0 ? <tr><td className="px-3 py-6 text-center text-muted" colSpan="7">{filters.collegeId ? "No users found" : "Select a college to view users"}</td></tr> : null}
               </tbody>
             </table>
           </div>
@@ -594,7 +631,7 @@ export default function AdminPanel() {
                     </td>
                   </tr>
                 ))}
-                {subjects.length === 0 ? <tr><td className="px-3 py-6 text-center text-muted" colSpan="6">No subjects yet</td></tr> : null}
+                {subjects.length === 0 ? <tr><td className="px-3 py-6 text-center text-muted" colSpan="6">{subjectForm.collegeId ? "No subjects yet" : "Select a college to view subjects"}</td></tr> : null}
               </tbody>
             </table>
           </div>

@@ -105,22 +105,13 @@ export default function Topbar() {
               <button className="block w-full px-3 py-2 text-left text-muted hover:bg-surface" type="button">
                 Settings
               </button>
-              {["moderator", "admin"].includes(currentUser?.role) ? (
+              {currentUser?.role === "moderator" ? (
                 <Link
                   className="block px-3 py-2 text-ink hover:bg-surface"
                   to="/moderation"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Moderation Panel
-                </Link>
-              ) : null}
-              {currentUser?.role === "admin" ? (
-                <Link
-                  className="block px-3 py-2 text-ink hover:bg-surface"
-                  to="/admin"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Admin Panel
                 </Link>
               ) : null}
               <button

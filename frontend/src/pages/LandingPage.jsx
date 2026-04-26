@@ -48,7 +48,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     if (!isLoadingUser && currentUser) {
-      navigate("/dashboard", { replace: true });
+      navigate(currentUser.role === "admin" ? "/admin" : "/dashboard", { replace: true });
     }
   }, [currentUser, isLoadingUser, navigate]);
 

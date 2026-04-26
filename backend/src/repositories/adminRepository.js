@@ -158,8 +158,50 @@ function findSubjects(filters = {}) {
     where: {
       courseId: filters.courseId,
       semesterId: filters.semesterId,
+      course: filters.collegeId ? { collegeId: filters.collegeId } : undefined,
     },
     orderBy: [{ course: { name: "asc" } }, { semester: { number: "asc" } }, { subjectCode: "asc" }],
+    include: subjectInclude,
+  });
+}
+
+function upsertCollege(data) {
+  return prisma.college.upsert({
+    where: { slug: data.slug },
+    update: { name: data.name },
+    create: data,
+  });
+}
+
+function upsertCourse(data) {
+  return prisma.course.upsert({
+    where: { collegeId_code: { collegeId: data.collegeId, code: data.code } },
+    update: { name: data.name },
+    create: data,
+    include: { college: { select: { id: true, name: true } }, semesters: true },
+  });
+}
+
+function upsertSemester(data) {
+  return prisma.semester.upsert({
+    where: { courseId_number: { courseId: data.courseId, number: data.number } },
+    update: {},
+    create: data,
+    include: { course: { select: { id: true, name: true, code: true } } },
+  });
+}
+
+function upsertSubject(data) {
+  return prisma.subject.upsert({
+    where: {
+      courseId_semesterId_subjectCode: {
+        courseId: data.courseId,
+        semesterId: data.semesterId,
+        subjectCode: data.subjectCode,
+      },
+    },
+    update: { subjectName: data.subjectName },
+    create: data,
     include: subjectInclude,
   });
 }
@@ -216,4 +258,8 @@ module.exports = {
   updateCollege,
   updateSubject,
   updateUser,
+  upsertCollege,
+  upsertCourse,
+  upsertSemester,
+  upsertSubject,
 };
