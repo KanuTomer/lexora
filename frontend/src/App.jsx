@@ -9,11 +9,13 @@ import AdminSemesters from "./pages/admin/AdminSemesters.jsx";
 import AdminSubjects from "./pages/admin/AdminSubjects.jsx";
 import AdminUsers from "./pages/admin/AdminUsers.jsx";
 import BookmarksPage from "./pages/BookmarksPage.jsx";
+import ContactPage from "./pages/ContactPage.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import FileDetailsPage from "./pages/FileDetailsPage.jsx";
 import LandingPage from "./pages/LandingPage.jsx";
 import Login from "./pages/Login.jsx";
 import ModerationPanel from "./pages/ModerationPanel.jsx";
+import ModeratorsPage from "./pages/ModeratorsPage.jsx";
 import Profile from "./pages/Profile.jsx";
 import SearchResultsPage from "./pages/SearchResultsPage.jsx";
 import Signup from "./pages/Signup.jsx";
@@ -64,6 +66,22 @@ export default function App() {
           element={
             <ProtectedRoute disallowRole="admin">
               <BookmarksPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/moderators"
+          element={
+            <ProtectedRoute disallowRole="admin">
+              <ModeratorsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/contact"
+          element={
+            <ProtectedRoute disallowRole="admin">
+              <ContactPage />
             </ProtectedRoute>
           }
         />

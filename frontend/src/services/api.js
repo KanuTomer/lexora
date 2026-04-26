@@ -136,6 +136,11 @@ export async function getModerationUsers() {
   return response.data.data;
 }
 
+export async function getCourseModerators() {
+  const response = await api.get("/moderators");
+  return response.data.data;
+}
+
 export async function updateModerationUserPrivilege(id, uploadPrivilege) {
   const response = await api.patch(`/moderation/users/${id}/privilege`, { uploadPrivilege });
   return response.data.data;

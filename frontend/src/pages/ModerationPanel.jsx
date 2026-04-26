@@ -167,6 +167,7 @@ export default function ModerationPanel() {
               <tr>
                 <th className="px-3 py-2 font-semibold">Username</th>
                 <th className="px-3 py-2 font-semibold">Program</th>
+                <th className="px-3 py-2 font-semibold">Role</th>
                 <th className="px-3 py-2 font-semibold">Upload privilege</th>
                 <th className="px-3 py-2 text-right font-semibold" aria-label="User actions"></th>
               </tr>
@@ -176,15 +177,20 @@ export default function ModerationPanel() {
                 <tr key={user.id} className="hover:bg-surface">
                   <td className="px-3 py-2 font-medium">{user.username}</td>
                   <td className="px-3 py-2 text-muted">{user.program?.name ?? "-"}</td>
+                  <td className="px-3 py-2 text-muted">{user.role}</td>
                   <td className="px-3 py-2 text-muted">{user.uploadPrivilege}</td>
                   <td className="px-3 py-2 text-right">
-                    <button
-                      className="h-8 rounded border border-line bg-white px-3 text-sm font-medium hover:bg-surface"
-                      type="button"
-                      onClick={() => handlePrivilegeToggle(user)}
-                    >
-                      Make {user.uploadPrivilege === "trusted" ? "restricted" : "trusted"}
-                    </button>
+                    {user.role === "user" ? (
+                      <button
+                        className="h-8 rounded border border-line bg-white px-3 text-sm font-medium hover:bg-surface"
+                        type="button"
+                        onClick={() => handlePrivilegeToggle(user)}
+                      >
+                        Make {user.uploadPrivilege === "trusted" ? "restricted" : "trusted"}
+                      </button>
+                    ) : (
+                      <span className="text-xs text-muted">Always trusted</span>
+                    )}
                   </td>
                 </tr>
               ))}

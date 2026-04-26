@@ -102,9 +102,20 @@ export default function Topbar() {
               >
                 Bookmarks
               </Link>
-              <button className="block w-full px-3 py-2 text-left text-muted hover:bg-surface" type="button">
-                Settings
-              </button>
+              <Link
+                className="block px-3 py-2 text-ink hover:bg-surface"
+                to="/moderators"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Moderators
+              </Link>
+              <Link
+                className="block px-3 py-2 text-ink hover:bg-surface"
+                to="/contact"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Contact
+              </Link>
               {currentUser?.role === "moderator" ? (
                 <Link
                   className="block px-3 py-2 text-ink hover:bg-surface"

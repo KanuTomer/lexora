@@ -8,6 +8,10 @@ function canModerateTarget(actor, target) {
     return true;
   }
 
+  if (target.role !== "user") {
+    return false;
+  }
+
   return Boolean(
     actor.collegeId &&
       actor.programId &&
@@ -42,6 +46,12 @@ async function updatePrivilege(actor, targetUserId, uploadPrivilege) {
   if (!target) {
     const error = new Error("User not found");
     error.statusCode = 404;
+    throw error;
+  }
+
+  if (target.role !== "user" && uploadPrivilege !== "trusted") {
+    const error = new Error("Moderator and admin accounts must remain trusted");
+    error.statusCode = 400;
     throw error;
   }
 

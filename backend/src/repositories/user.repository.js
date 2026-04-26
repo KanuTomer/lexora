@@ -94,10 +94,30 @@ async function findScopedUsers(scope) {
     where: {
       collegeId: scope.collegeId,
       programId: scope.programId,
-      role: { not: "admin" },
+      role: "user",
     },
     orderBy: { username: "asc" },
     select: privateSelect,
+  });
+}
+
+async function findScopedModerators(scope) {
+  return prisma.user.findMany({
+    where: {
+      collegeId: scope.collegeId,
+      programId: scope.programId,
+      role: "moderator",
+    },
+    orderBy: [{ name: "asc" }, { username: "asc" }],
+    select: {
+      id: true,
+      username: true,
+      name: true,
+      email: true,
+      avatarUrl: true,
+      college: { select: { id: true, name: true } },
+      program: { select: { id: true, name: true } },
+    },
   });
 }
 
@@ -128,5 +148,6 @@ module.exports = {
   update,
   getStats,
   adminFindMany,
+  findScopedModerators,
   findScopedUsers,
 };

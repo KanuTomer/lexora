@@ -142,6 +142,8 @@ async function createUser(actorId, payload = {}) {
     throw createHttpError("Invalid upload privilege", 400);
   }
 
+  const effectiveUploadPrivilege = role === "moderator" || role === "admin" ? "trusted" : uploadPrivilege;
+
   await assertUniqueUser({ email, username });
   await validateUserRelations({ collegeId, programId });
 
@@ -153,7 +155,7 @@ async function createUser(actorId, payload = {}) {
       name: normalizeOptionalString(payload.name),
       password: await bcrypt.hash(password, 12),
       role,
-      uploadPrivilege,
+      uploadPrivilege: effectiveUploadPrivilege,
       collegeId,
       programId,
     });
@@ -168,7 +170,7 @@ async function createUser(actorId, payload = {}) {
     action: "admin.user.created",
     actorId,
     targetId: user.id,
-    metadata: { role, uploadPrivilege },
+    metadata: { role, uploadPrivilege: effectiveUploadPrivilege },
   });
 
   return user;
@@ -228,6 +230,11 @@ async function updateUser(actorId, id, payload = {}) {
 
   if (Object.keys(data).length === 0) {
     throw createHttpError("No user fields provided", 400);
+  }
+
+  const finalRole = data.role || existing.role;
+  if (finalRole === "moderator" || finalRole === "admin") {
+    data.uploadPrivilege = "trusted";
   }
 
   await assertUniqueUser({ id, email: data.email, username: data.username });
