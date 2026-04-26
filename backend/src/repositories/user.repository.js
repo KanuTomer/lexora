@@ -20,6 +20,13 @@ const privateSelect = {
   email: true,
 };
 
+const listSelect = {
+  id: true,
+  username: true,
+  avatarUrl: true,
+  role: true,
+};
+
 function buildUserWhere(filters = {}) {
   return {
     collegeId: filters.collegeId,
@@ -33,7 +40,7 @@ async function findMany(filters = {}) {
   return prisma.user.findMany({
     where: buildUserWhere(filters),
     orderBy: { createdAt: "desc" },
-    select: privateSelect,
+    select: listSelect,
   });
 }
 

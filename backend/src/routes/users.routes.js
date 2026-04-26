@@ -4,7 +4,7 @@ const { asyncHandler } = require("../middleware/asyncHandler");
 const { requireAuth } = require("../middleware/authMiddleware");
 const { avatarUpload } = require("../middleware/uploadMiddleware");
 
-router.get("/", asyncHandler(userController.listUsers));
+router.get("/", requireAuth, asyncHandler(userController.listUsers));
 router.get("/me", requireAuth, asyncHandler(userController.getMe));
 router.patch("/me", requireAuth, asyncHandler(userController.updateMe));
 router.patch("/me/details", requireAuth, asyncHandler(userController.updateDetails));

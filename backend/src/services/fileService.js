@@ -6,7 +6,7 @@ const fileRepository = require("../repositories/fileRepository");
 const reportRepository = require("../repositories/reportRepository");
 const subjectRepository = require("../repositories/subject.repository");
 const userRepository = require("../repositories/user.repository");
-const { assertFileInScope, getSubjectScope } = require("./tenantScope");
+const { assertSubjectInScope, getSubjectScope } = require("./tenantScope");
 
 const allowedFileTypes = new Set(["notes", "assignment", "test-paper", "syllabus"]);
 const allowedSorts = new Set(["recent", "downloads"]);
@@ -43,6 +43,7 @@ async function validateSubject(subjectId, user) {
   if (!subject) {
     throw createHttpError("Subject not found", 404);
   }
+  assertSubjectInScope(subject, user);
   return subject;
 }
 

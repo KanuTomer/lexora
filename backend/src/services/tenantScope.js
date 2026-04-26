@@ -35,6 +35,10 @@ function assertSubjectInScope(subject, user) {
     return;
   }
 
+  if (subject?.course?.name !== user.program?.name) {
+    throw createHttpError("Program-course mismatch", 403);
+  }
+
   if (subject?.course?.collegeId !== courseScope.collegeId || subject?.course?.name !== courseScope.name) {
     throw createHttpError("Subject not found", 404);
   }

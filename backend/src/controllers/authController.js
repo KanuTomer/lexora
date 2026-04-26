@@ -1,7 +1,13 @@
 const authService = require("../services/authService");
 
+function debugLog(...args) {
+  if (process.env.NODE_ENV !== "production") {
+    console.log(...args);
+  }
+}
+
 async function signup(req, res) {
-  console.log("[signup] controller received request", {
+  debugLog("[signup] controller received request", {
     hasBody: Boolean(req.body),
     bodyFields: req.body ? Object.keys(req.body) : [],
     hasFile: Boolean(req.file),
