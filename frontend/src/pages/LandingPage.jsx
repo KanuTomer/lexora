@@ -1,6 +1,8 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import { FaGithub, FaLinkedin, FaYoutube } from "react-icons/fa";
 import { BookOpen, FolderKanban, UploadCloud } from "lucide-react";
+import { useAuth } from "../context/AuthContext.jsx";
 
 const steps = [
   {
@@ -41,6 +43,15 @@ function WhiteLogo({ className = "" }) {
 }
 
 export default function LandingPage() {
+  const navigate = useNavigate();
+  const { currentUser, isLoadingUser } = useAuth();
+
+  useEffect(() => {
+    if (!isLoadingUser && currentUser) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [currentUser, isLoadingUser, navigate]);
+
   return (
     <main className="min-h-screen bg-white text-ink">
       <section

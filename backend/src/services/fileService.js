@@ -10,6 +10,8 @@ const { assertFileInScope, getSubjectScope } = require("./tenantScope");
 
 const allowedFileTypes = new Set(["notes", "assignment", "test-paper", "syllabus"]);
 const allowedSorts = new Set(["recent", "downloads"]);
+const allowedUploadMimeTypes = new Set(["application/pdf", "image/png", "image/jpeg"]);
+const allowedUploadExtensions = new Set([".pdf", ".png", ".jpg", ".jpeg"]);
 
 function createHttpError(message, statusCode, details) {
   const error = new Error(message);
@@ -78,6 +80,11 @@ async function uploadFile({ body, file, user, req }) {
   try {
     if (!file) {
       throw createHttpError("File is required", 400);
+    }
+
+    const extension = path.extname(file.originalname || "").toLowerCase();
+    if (!allowedUploadMimeTypes.has(file.mimetype) || !allowedUploadExtensions.has(extension)) {
+      throw createHttpError("Invalid file type. Only PDF, PNG, JPG, and JPEG files are allowed.", 400);
     }
 
     const { title, subjectId, fileType } = body;

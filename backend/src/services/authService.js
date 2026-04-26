@@ -114,16 +114,16 @@ async function signup(payload = {}, file = null) {
 }
 
 async function login(payload = {}) {
-  const email = typeof payload.email === "string" ? payload.email.trim() : "";
+  const username = typeof payload.username === "string" ? payload.username.trim() : "";
   const password = typeof payload.password === "string" ? payload.password : "";
-  const normalizedPayload = { email, password };
-  const missingFields = ["email", "password"].filter((field) => !normalizedPayload[field]);
+  const normalizedPayload = { username, password };
+  const missingFields = ["username", "password"].filter((field) => !normalizedPayload[field]);
 
   if (missingFields.length > 0) {
     throw createHttpError("Missing required login fields", 400, { missingFields });
   }
 
-  const user = await authRepository.findByEmail(email);
+  const user = await authRepository.findByUsername(username);
   if (!user || !user.password) {
     throw createHttpError("Invalid credentials", 401);
   }

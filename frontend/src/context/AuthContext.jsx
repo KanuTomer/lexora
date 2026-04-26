@@ -20,12 +20,14 @@ export function AuthProvider({ children }) {
       setCurrentUser(user);
       localStorage.setItem("userId", user.id);
       localStorage.setItem("role", user.role);
+      localStorage.setItem("user", JSON.stringify(user));
       return user;
     } catch (error) {
       console.error("Failed to load current user", error);
       localStorage.removeItem("token");
       localStorage.removeItem("userId");
       localStorage.removeItem("role");
+      localStorage.removeItem("user");
       setCurrentUser(null);
       return null;
     } finally {
@@ -37,6 +39,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem("token", session.token);
     localStorage.setItem("userId", session.user.id);
     localStorage.setItem("role", session.user.role);
+    localStorage.setItem("user", JSON.stringify(session.user));
     setCurrentUser(session.user);
   }
 
@@ -44,6 +47,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem("token");
     localStorage.removeItem("userId");
     localStorage.removeItem("role");
+    localStorage.removeItem("user");
     setCurrentUser(null);
   }
 

@@ -7,12 +7,27 @@ const avatarUploadDirectory = path.resolve(uploadDirectory, "avatars");
 fs.mkdirSync(uploadDirectory, { recursive: true });
 fs.mkdirSync(avatarUploadDirectory, { recursive: true });
 const storage = multer.memoryStorage();
+const allowedUploadMimeTypes = new Set(["application/pdf", "image/png", "image/jpeg"]);
+const allowedUploadExtensions = new Set([".pdf", ".png", ".jpg", ".jpeg"]);
+
+function validateUploadFile(req, file, callback) {
+  const extension = path.extname(file.originalname || "").toLowerCase();
+
+  if (!allowedUploadMimeTypes.has(file.mimetype) || !allowedUploadExtensions.has(extension)) {
+    const error = new Error("Invalid file type. Only PDF, PNG, JPG, and JPEG files are allowed.");
+    error.statusCode = 400;
+    return callback(error);
+  }
+
+  return callback(null, true);
+}
 
 const upload = multer({
   storage,
   limits: {
     fileSize: 10 * 1024 * 1024,
   },
+  fileFilter: validateUploadFile,
 });
 
 const avatarUpload = multer({

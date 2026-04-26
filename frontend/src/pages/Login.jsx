@@ -7,7 +7,7 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const { setSession } = useAuth();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -18,7 +18,7 @@ export default function Login() {
 
     try {
       setIsSubmitting(true);
-      const session = await login({ email, password });
+      const session = await login({ username, password });
       setSession(session);
       navigate(location.state?.from?.pathname ?? "/dashboard", { replace: true });
     } catch (loginError) {
@@ -37,13 +37,13 @@ export default function Login() {
         {error ? <p className="mt-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
         <div className="mt-4 space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium" htmlFor="email">Email</label>
+            <label className="mb-1 block text-sm font-medium" htmlFor="username">Username</label>
             <input
-              id="email"
+              id="username"
               className="h-10 w-full rounded border border-line px-3 text-sm outline-none focus:border-blue-600"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="username"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
             />
           </div>
           <div>
@@ -52,6 +52,7 @@ export default function Login() {
               id="password"
               className="h-10 w-full rounded border border-line px-3 text-sm outline-none focus:border-blue-600"
               type="password"
+              autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
