@@ -1,8 +1,16 @@
 const adminService = require("../services/adminService");
 
+function sendList(res, result) {
+  if (result?.meta) {
+    res.json(result);
+    return;
+  }
+  res.json({ data: result });
+}
+
 async function listUsers(req, res) {
   const users = await adminService.listUsers(req.query);
-  res.json({ data: users });
+  sendList(res, users);
 }
 
 async function createUser(req, res) {
@@ -26,8 +34,8 @@ async function updateUserRole(req, res) {
 }
 
 async function listColleges(req, res) {
-  const colleges = await adminService.listColleges();
-  res.json({ data: colleges });
+  const colleges = await adminService.listColleges(req.query);
+  sendList(res, colleges);
 }
 
 async function createCollege(req, res) {
@@ -47,12 +55,12 @@ async function deleteCollege(req, res) {
 
 async function listPrograms(req, res) {
   const programs = await adminService.listPrograms(req.query);
-  res.json({ data: programs });
+  sendList(res, programs);
 }
 
 async function listCourses(req, res) {
   const courses = await adminService.listCourses(req.query);
-  res.json({ data: courses });
+  sendList(res, courses);
 }
 
 async function createCourse(req, res) {
@@ -62,7 +70,7 @@ async function createCourse(req, res) {
 
 async function listSemesters(req, res) {
   const semesters = await adminService.listSemesters(req.query);
-  res.json({ data: semesters });
+  sendList(res, semesters);
 }
 
 async function createSemester(req, res) {
@@ -72,7 +80,7 @@ async function createSemester(req, res) {
 
 async function listSubjects(req, res) {
   const subjects = await adminService.listSubjects(req.query);
-  res.json({ data: subjects });
+  sendList(res, subjects);
 }
 
 async function createSubject(req, res) {

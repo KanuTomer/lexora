@@ -7,7 +7,7 @@ const include = {
       course: { select: { id: true, name: true, code: true, collegeId: true } },
     },
   },
-  uploadedBy: { select: { id: true, username: true, name: true, email: true, avatarUrl: true, avatarPublicId: true } },
+  uploadedBy: { select: { id: true, username: true, name: true, avatarUrl: true } },
 };
 
 function buildWhere(filters = {}) {
@@ -40,6 +40,10 @@ function findMany(filters = {}) {
 
 function countMany(filters = {}) {
   return prisma.file.count({ where: buildWhere(filters) });
+}
+
+function countByAssetId(assetId) {
+  return prisma.file.count({ where: { assetId } });
 }
 
 function searchMany(filters = {}) {
@@ -114,6 +118,14 @@ function create(data) {
   return prisma.file.create({ data, include });
 }
 
+function findAssetByHash(contentHash) {
+  return prisma.fileAsset.findUnique({ where: { contentHash } });
+}
+
+async function createAsset(data) {
+  return prisma.fileAsset.create({ data });
+}
+
 function incrementDownloads(id) {
   return prisma.file.update({
     where: { id },
@@ -137,6 +149,7 @@ function deleteById(id) {
 module.exports = {
   findMany,
   countMany,
+  countByAssetId,
   searchMany,
   countSearch,
   findReported,
@@ -146,7 +159,9 @@ module.exports = {
   markAutoApproved,
   markStale,
   findById,
+  findAssetByHash,
   create,
+  createAsset,
   incrementDownloads,
   updateById,
   deleteById,

@@ -111,12 +111,18 @@ model File {
   title        String
   fileUrl      String
   publicId     String?
+  contentHash  String?
+  assetId      String?
   fileType     String
   size         Int
   subjectId    String
   uploadedById String
   status       String     @default("pending")
   isStale      Boolean    @default(false)
+  rejectionReason String?
+  moderatedAt DateTime?
+  moderatorId  String?
+  asset        FileAsset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
   subject      Subject    @relation(fields: [subjectId], references: [id], onDelete: Restrict)
   uploadedBy   User       @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
   bookmarks    Bookmark[]
@@ -128,7 +134,22 @@ model File {
 
   @@index([subjectId, fileType])
   @@index([status])
+  @@index([contentHash])
+  @@index([assetId])
   @@map("files")
+}
+
+model FileAsset {
+  id          String   @id @default(cuid())
+  contentHash String   @unique
+  fileUrl     String
+  publicId    String?
+  size        Int
+  mimeType    String?
+  files       File[]
+  createdAt   DateTime @default(now())
+
+  @@map("file_assets")
 }
 
 model Bookmark {

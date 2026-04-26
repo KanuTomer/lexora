@@ -29,6 +29,45 @@ function normalizeSlug(value) {
   return normalizeString(value).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
+function hasPagination(query = {}) {
+  return Object.prototype.hasOwnProperty.call(query, "page")
+    || Object.prototype.hasOwnProperty.call(query, "limit");
+}
+
+function parsePagination(query = {}) {
+  const page = Math.max(Number.parseInt(query.page, 10) || 1, 1);
+  const requestedLimit = Number.parseInt(query.limit, 10) || 20;
+  const limit = Math.min(Math.max(requestedLimit, 1), 100);
+  return { page, limit, skip: (page - 1) * limit, take: limit };
+}
+
+function buildPaginationMeta(total, page, limit) {
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  return {
+    total,
+    totalCount: total,
+    page,
+    limit,
+    totalPages,
+    hasMore: page < totalPages,
+    nextPage: page < totalPages ? page + 1 : null,
+  };
+}
+
+async function paginatedList(query, filters, findFn, countFn) {
+  if (!hasPagination(query)) {
+    return findFn(filters);
+  }
+
+  const { page, limit, skip, take } = parsePagination(query);
+  const [items, total] = await Promise.all([
+    findFn({ ...filters, skip, take }),
+    countFn(filters),
+  ]);
+
+  return { data: items, meta: buildPaginationMeta(total, page, limit) };
+}
+
 async function assertUniqueUser({ id, email, username }) {
   if (email) {
     const existingEmail = await adminRepository.findUserByEmail(email);
@@ -68,15 +107,17 @@ async function validateUserRelations({ collegeId, programId }) {
 
 function listUsers(query = {}) {
   if (!query.collegeId) {
-    return [];
+    if (!hasPagination(query)) return [];
+    const { page, limit } = parsePagination(query);
+    return { data: [], meta: buildPaginationMeta(0, page, limit) };
   }
 
-  return adminRepository.findUsers({
+  return paginatedList(query, {
     collegeId: query.collegeId || undefined,
     programId: query.programId || undefined,
     role: query.role || undefined,
     uploadPrivilege: query.uploadPrivilege || undefined,
-  });
+  }, adminRepository.findUsers, adminRepository.countUsers);
 }
 
 async function createUser(actorId, payload = {}) {
@@ -232,8 +273,8 @@ async function deleteUser(actorId, id) {
   return user;
 }
 
-function listColleges() {
-  return adminRepository.findColleges();
+function listColleges(query = {}) {
+  return paginatedList(query, {}, adminRepository.findColleges, adminRepository.countColleges);
 }
 
 async function assertUniqueCollege({ id, name, slug }) {
@@ -305,16 +346,30 @@ async function deleteCollege(actorId, id) {
 
 function listPrograms(query = {}) {
   if (!query.collegeId) {
-    return [];
+    if (!hasPagination(query)) return [];
+    const { page, limit } = parsePagination(query);
+    return { data: [], meta: buildPaginationMeta(0, page, limit) };
   }
-  return adminRepository.findPrograms({ collegeId: query.collegeId || undefined });
+  return paginatedList(
+    query,
+    { collegeId: query.collegeId || undefined },
+    adminRepository.findPrograms,
+    adminRepository.countPrograms,
+  );
 }
 
 function listCourses(query = {}) {
   if (!query.collegeId) {
-    return [];
+    if (!hasPagination(query)) return [];
+    const { page, limit } = parsePagination(query);
+    return { data: [], meta: buildPaginationMeta(0, page, limit) };
   }
-  return adminRepository.findCourses({ collegeId: query.collegeId || undefined });
+  return paginatedList(
+    query,
+    { collegeId: query.collegeId || undefined },
+    adminRepository.findCourses,
+    adminRepository.countCourses,
+  );
 }
 
 async function createCourse(actorId, payload = {}) {
@@ -344,9 +399,16 @@ async function createCourse(actorId, payload = {}) {
 
 function listSemesters(query = {}) {
   if (!query.courseId) {
-    return [];
+    if (!hasPagination(query)) return [];
+    const { page, limit } = parsePagination(query);
+    return { data: [], meta: buildPaginationMeta(0, page, limit) };
   }
-  return adminRepository.findSemesters({ courseId: query.courseId || undefined });
+  return paginatedList(
+    query,
+    { courseId: query.courseId || undefined },
+    adminRepository.findSemesters,
+    adminRepository.countSemesters,
+  );
 }
 
 async function createSemester(actorId, payload = {}) {
@@ -374,14 +436,16 @@ async function createSemester(actorId, payload = {}) {
 
 function listSubjects(query = {}) {
   if (!query.collegeId && !query.courseId) {
-    return [];
+    if (!hasPagination(query)) return [];
+    const { page, limit } = parsePagination(query);
+    return { data: [], meta: buildPaginationMeta(0, page, limit) };
   }
 
-  return adminRepository.findSubjects({
+  return paginatedList(query, {
     collegeId: query.collegeId || undefined,
     courseId: query.courseId || undefined,
     semesterId: query.semesterId || undefined,
-  });
+  }, adminRepository.findSubjects, adminRepository.countSubjects);
 }
 
 function validateImportPayload(payload = {}) {

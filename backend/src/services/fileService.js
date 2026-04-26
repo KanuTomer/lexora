@@ -1,5 +1,6 @@
 const path = require("path");
 const fs = require("fs/promises");
+const crypto = require("crypto");
 const auditService = require("./auditService");
 const { destroyAsset, uploadBuffer } = require("./cloudinaryService");
 const fileRepository = require("../repositories/fileRepository");
@@ -60,8 +61,27 @@ function parsePagination(query) {
   };
 }
 
+function buildPaginationMeta(total, page, limit) {
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  return {
+    total,
+    totalCount: total,
+    page,
+    limit,
+    totalPages,
+    hasMore: page < totalPages,
+    nextPage: page < totalPages ? page + 1 : null,
+  };
+}
+
 function getOrderBy(sort) {
-  return sort === "downloads" ? { downloads: "desc" } : { createdAt: "desc" };
+  return sort === "downloads"
+    ? [{ downloads: "desc" }, { createdAt: "desc" }, { id: "desc" }]
+    : [{ createdAt: "desc" }, { id: "desc" }];
+}
+
+function canModerate(user) {
+  return user?.role === "moderator" || user?.role === "admin";
 }
 
 async function validateUploader(uploadedById) {
@@ -75,6 +95,78 @@ async function validateUploader(uploadedById) {
   }
 
   return user;
+}
+
+function hashBuffer(buffer) {
+  return crypto.createHash("sha256").update(buffer).digest("hex");
+}
+
+async function resolveStoredAsset(file) {
+  const contentHash = hashBuffer(file.buffer);
+  const existingAsset = await fileRepository.findAssetByHash(contentHash);
+  if (existingAsset) {
+    return {
+      assetId: existingAsset.id,
+      contentHash,
+      fileUrl: existingAsset.fileUrl,
+      publicId: existingAsset.publicId,
+      deduplicated: true,
+    };
+  }
+
+  let uploadResult;
+  try {
+    uploadResult = await uploadBuffer(file.buffer, "lexora/files");
+    if (process.env.NODE_ENV !== "production") {
+      console.log("Cloudinary file upload succeeded", {
+        originalName: file.originalname,
+        publicId: uploadResult.public_id,
+        contentHash,
+      });
+    }
+  } catch (cloudinaryError) {
+    console.error("Cloudinary file upload failed", cloudinaryError);
+    throw createHttpError("Upload failed. Please try again.", 502);
+  }
+
+  try {
+    const asset = await fileRepository.createAsset({
+      contentHash,
+      fileUrl: uploadResult.secure_url,
+      publicId: uploadResult.public_id,
+      size: file.size,
+      mimeType: file.mimetype,
+    });
+
+    return {
+      assetId: asset.id,
+      contentHash,
+      fileUrl: asset.fileUrl,
+      publicId: asset.publicId,
+      deduplicated: false,
+    };
+  } catch (error) {
+    if (error.code === "P2002") {
+      const racedAsset = await fileRepository.findAssetByHash(contentHash);
+      if (racedAsset) {
+        await destroyAsset(uploadResult.public_id).catch((destroyError) => {
+          console.error("Failed to clean up duplicate Cloudinary asset", destroyError);
+        });
+        return {
+          assetId: racedAsset.id,
+          contentHash,
+          fileUrl: racedAsset.fileUrl,
+          publicId: racedAsset.publicId,
+          deduplicated: true,
+        };
+      }
+    }
+
+    await destroyAsset(uploadResult.public_id).catch((destroyError) => {
+      console.error("Failed to clean up Cloudinary asset after asset create failure", destroyError);
+    });
+    throw error;
+  }
 }
 
 async function uploadFile({ body, file, user, req }) {
@@ -102,23 +194,14 @@ async function uploadFile({ body, file, user, req }) {
 
     const uploader = await validateUploader(user?.id);
     await validateSubject(subjectId, uploader);
-    let uploadResult;
-
-    try {
-      uploadResult = await uploadBuffer(file.buffer, "lexora/files");
-      console.log("Cloudinary file upload succeeded", {
-        originalName: file.originalname,
-        publicId: uploadResult.public_id,
-      });
-    } catch (cloudinaryError) {
-      console.error("Cloudinary file upload failed", cloudinaryError);
-      throw createHttpError("Upload failed. Please try again.", 502);
-    }
+    const storedAsset = await resolveStoredAsset(file);
 
     return fileRepository.create({
       title,
-      fileUrl: uploadResult.secure_url,
-      publicId: uploadResult.public_id,
+      fileUrl: storedAsset.fileUrl,
+      publicId: storedAsset.publicId,
+      contentHash: storedAsset.contentHash,
+      assetId: storedAsset.assetId,
       fileType,
       size: file.size,
       status: uploader.uploadPrivilege === "trusted" ? "approved" : "pending",
@@ -151,7 +234,7 @@ async function listFiles(query, user) {
     semesterId: query.semesterId,
     uploadedById: query.uploadedById,
     fileType: query.fileType,
-    status: query.status ?? "approved",
+    status: canModerate(user) ? (query.status ?? "approved") : "approved",
     isStale: query.isStale,
     subjectWhere,
     orderBy: getOrderBy(sort),
@@ -166,18 +249,15 @@ async function listFiles(query, user) {
 
   return {
     data: files,
-    meta: {
-      total,
-      page,
-      limit,
-      totalPages: Math.max(1, Math.ceil(total / limit)),
-    },
+    meta: buildPaginationMeta(total, page, limit),
   };
 }
 
 async function listReportedFiles(query, user) {
   const { page, limit, skip, take } = parsePagination(query);
-  const orderBy = query.sort === "recent" ? { updatedAt: "desc" } : { reportsCount: "desc" };
+  const orderBy = query.sort === "recent"
+    ? [{ updatedAt: "desc" }, { id: "desc" }]
+    : [{ reportsCount: "desc" }, { updatedAt: "desc" }, { id: "desc" }];
   const subjectWhere = getSubjectScope(user);
   const [files, total] = await Promise.all([
     fileRepository.findReported({ subjectWhere, orderBy, skip, take }),
@@ -206,18 +286,15 @@ async function listReportedFiles(query, user) {
         topReason,
       };
     }),
-    meta: {
-      total,
-      page,
-      limit,
-      totalPages: Math.max(1, Math.ceil(total / limit)),
-    },
+    meta: buildPaginationMeta(total, page, limit),
   };
 }
 
 async function listStaleFiles(query, user) {
   const { page, limit, skip, take } = parsePagination(query);
-  const orderBy = query.sort === "recent" ? { updatedAt: "desc" } : { updatedAt: "asc" };
+  const orderBy = query.sort === "recent"
+    ? [{ updatedAt: "desc" }, { id: "desc" }]
+    : [{ updatedAt: "asc" }, { id: "asc" }];
   const subjectWhere = getSubjectScope(user);
   const [files, total] = await Promise.all([
     fileRepository.findStale({ subjectWhere, orderBy, skip, take }),
@@ -226,12 +303,7 @@ async function listStaleFiles(query, user) {
 
   return {
     data: files,
-    meta: {
-      total,
-      page,
-      limit,
-      totalPages: Math.max(1, Math.ceil(total / limit)),
-    },
+    meta: buildPaginationMeta(total, page, limit),
   };
 }
 
@@ -304,9 +376,13 @@ async function deleteFile(id, userId) {
 }
 
 async function deleteFileRecordAndAsset(file) {
+  const shouldDeleteSharedAsset = file.assetId
+    ? (await fileRepository.countByAssetId(file.assetId)) <= 1
+    : true;
+
   await fileRepository.deleteById(file.id);
 
-  if (file.publicId) {
+  if (shouldDeleteSharedAsset && file.publicId) {
     await destroyAsset(file.publicId).catch((error) => {
       console.error("Failed to delete Cloudinary asset", error);
     });
@@ -338,12 +414,34 @@ async function approveFileAsModerator(id, actor) {
   const updatedFile = await fileRepository.updateById(file.id, {
     status: "approved",
     reportsCount: 0,
+    rejectionReason: null,
+    moderatedAt: new Date(),
+    moderatorId: actor.id,
   });
   await auditService.logAction({
     action: "moderation.file.approved",
     actorId: actor.id,
     targetId: file.id,
     metadata: { previousStatus: file.status },
+  });
+  return updatedFile;
+}
+
+async function rejectFileAsModerator(id, actor, reason) {
+  const file = await getFile(id, actor);
+  await reportRepository.clearForFile(file.id);
+  const updatedFile = await fileRepository.updateById(file.id, {
+    status: "rejected",
+    reportsCount: 0,
+    rejectionReason: typeof reason === "string" && reason.trim() ? reason.trim() : null,
+    moderatedAt: new Date(),
+    moderatorId: actor.id,
+  });
+  await auditService.logAction({
+    action: "moderation.file.rejected",
+    actorId: actor.id,
+    targetId: file.id,
+    metadata: { previousStatus: file.status, reason: updatedFile.rejectionReason },
   });
   return updatedFile;
 }
@@ -382,7 +480,7 @@ async function searchFiles(query, user) {
   if (!q) {
     return {
       data: [],
-      meta: { total: 0, page, limit, totalPages: 1 },
+      meta: buildPaginationMeta(0, page, limit),
     };
   }
 
@@ -405,12 +503,7 @@ async function searchFiles(query, user) {
 
   return {
     data: files,
-    meta: {
-      total,
-      page,
-      limit,
-      totalPages: Math.max(1, Math.ceil(total / limit)),
-    },
+    meta: buildPaginationMeta(total, page, limit),
   };
 }
 
@@ -427,6 +520,7 @@ module.exports = {
   deleteFile,
   deleteFileAsModerator,
   approveFileAsModerator,
+  rejectFileAsModerator,
   ignoreReportsAsModerator,
   keepStaleFileAsModerator,
 };

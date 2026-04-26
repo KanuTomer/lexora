@@ -43,6 +43,15 @@ async function deleteFile(req, res) {
   res.status(204).send();
 }
 
+async function rejectFile(req, res) {
+  const file = await fileService.rejectFileAsModerator(
+    req.params.id ?? req.params.fileId,
+    req.user,
+    req.body?.reason,
+  );
+  res.json({ data: file });
+}
+
 async function ignoreFile(req, res) {
   const file = await fileService.ignoreReportsAsModerator(
     req.params.id ?? req.params.fileId,
@@ -62,6 +71,7 @@ async function keepFile(req, res) {
 module.exports = {
   approveFile,
   deleteFile,
+  rejectFile,
   ignoreFile,
   listFiles,
   listReportedFiles,

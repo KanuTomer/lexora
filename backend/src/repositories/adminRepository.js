@@ -32,9 +32,15 @@ function buildUserWhere(filters = {}) {
 function findUsers(filters = {}) {
   return prisma.user.findMany({
     where: buildUserWhere(filters),
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    skip: filters.skip,
+    take: filters.take,
     select: userSelect,
   });
+}
+
+function countUsers(filters = {}) {
+  return prisma.user.count({ where: buildUserWhere(filters) });
 }
 
 function findUserById(id) {
@@ -61,15 +67,21 @@ function deleteUser(id) {
   return prisma.user.delete({ where: { id }, select: userSelect });
 }
 
-function findColleges() {
+function findColleges(filters = {}) {
   return prisma.college.findMany({
-    orderBy: { name: "asc" },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    skip: filters.skip,
+    take: filters.take,
     include: {
       programs: { orderBy: { name: "asc" }, include: { course: { select: { id: true, name: true, code: true } } } },
       courses: { orderBy: { name: "asc" } },
       _count: { select: { users: true, programs: true, courses: true } },
     },
   });
+}
+
+function countColleges() {
+  return prisma.college.count();
 }
 
 function findCollegeById(id) {
@@ -99,7 +111,9 @@ function deleteCollege(id) {
 function findPrograms(filters = {}) {
   return prisma.program.findMany({
     where: { collegeId: filters.collegeId },
-    orderBy: { name: "asc" },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    skip: filters.skip,
+    take: filters.take,
     include: {
       college: { select: { id: true, name: true } },
       course: { select: { id: true, name: true, code: true, collegeId: true } },
@@ -107,15 +121,25 @@ function findPrograms(filters = {}) {
   });
 }
 
+function countPrograms(filters = {}) {
+  return prisma.program.count({ where: { collegeId: filters.collegeId } });
+}
+
 function findCourses(filters = {}) {
   return prisma.course.findMany({
     where: { collegeId: filters.collegeId },
-    orderBy: [{ name: "asc" }, { code: "asc" }],
+    orderBy: [{ name: "asc" }, { code: "asc" }, { id: "asc" }],
+    skip: filters.skip,
+    take: filters.take,
     include: {
       college: { select: { id: true, name: true } },
       semesters: { orderBy: { number: "asc" } },
     },
   });
+}
+
+function countCourses(filters = {}) {
+  return prisma.course.count({ where: { collegeId: filters.collegeId } });
 }
 
 function findCourseById(id) {
@@ -136,9 +160,15 @@ function createCourse(data) {
 function findSemesters(filters = {}) {
   return prisma.semester.findMany({
     where: { courseId: filters.courseId },
-    orderBy: { number: "asc" },
+    orderBy: [{ number: "asc" }, { id: "asc" }],
+    skip: filters.skip,
+    take: filters.take,
     include: { course: { select: { id: true, name: true, code: true } } },
   });
+}
+
+function countSemesters(filters = {}) {
+  return prisma.semester.count({ where: { courseId: filters.courseId } });
 }
 
 function findSemesterById(id) {
@@ -163,8 +193,20 @@ function findSubjects(filters = {}) {
       semesterId: filters.semesterId,
       course: filters.collegeId ? { collegeId: filters.collegeId } : undefined,
     },
-    orderBy: [{ course: { name: "asc" } }, { semester: { number: "asc" } }, { subjectCode: "asc" }],
+    orderBy: [{ course: { name: "asc" } }, { semester: { number: "asc" } }, { subjectCode: "asc" }, { id: "asc" }],
+    skip: filters.skip,
+    take: filters.take,
     include: subjectInclude,
+  });
+}
+
+function countSubjects(filters = {}) {
+  return prisma.subject.count({
+    where: {
+      courseId: filters.courseId,
+      semesterId: filters.semesterId,
+      course: filters.collegeId ? { collegeId: filters.collegeId } : undefined,
+    },
   });
 }
 
@@ -259,6 +301,12 @@ module.exports = {
   createSemester,
   createSubject,
   createUser,
+  countColleges,
+  countCourses,
+  countPrograms,
+  countSemesters,
+  countSubjects,
+  countUsers,
   deleteCollege,
   deleteSubject,
   deleteUser,
